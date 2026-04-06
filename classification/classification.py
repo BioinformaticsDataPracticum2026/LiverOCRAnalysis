@@ -15,7 +15,7 @@ Paramaeters:
 def classifyOcrPromotersEnhancers(
     ocrBedPath: str,
     tssBedPath: str,
-    outputPrefix: str
+    outputPrefix: str,
     promoter_distance: int = 2000  #Might be worth switching to 5k?
 ):
     
