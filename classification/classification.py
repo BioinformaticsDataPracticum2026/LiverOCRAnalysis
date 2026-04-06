@@ -91,3 +91,13 @@ def classifyOcrPromotersEnhancers(
     print(f"Nearest TSS: {outputPrefix}_nearestTSS.bed\n")
     
     return ocrPromoters, ocrEnhancers, ocrWithGenes
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Classify OCRs into promoters/enhancers")
+    parser.add_argument("--config", required=True)
+
+    args = parser.parse_args()
+
+    run_classification(Path(args.config))
