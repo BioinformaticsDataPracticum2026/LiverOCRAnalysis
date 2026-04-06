@@ -190,3 +190,14 @@ def preprocess_config(config_path: Path) -> Path:
     print(f"Processed config written to: {processed_path}")
 
     return processed_path
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Preprocess BED files for bedtools pipeline")
+    parser.add_argument("--config", required=True, help="Path to YAML config file")
+
+    args = parser.parse_args()
+
+    processed_config_path = preprocess_config(Path(args.config))
+    print(f"Preprocessing done! Processed config: {processed_config_path}")
