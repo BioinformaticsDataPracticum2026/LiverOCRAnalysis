@@ -1,4 +1,5 @@
 #main entry point for the pipeline
+from pathlib import Path
 
 def run_quality_control():
     # check quality of human and mouse datasets
@@ -23,10 +24,29 @@ def run_regulatory_comparison():
     pass
 
 
-def run_classification():
-    # classify regions into promoters and enhancers
-    # based on distance to TSS (±2kb)
-    pass
+#run_classification() -> Classifies OCR peaks into promoters and enhancers based on distance to TSS (±2kb)
+def run_classification(config_path: Path):
+    cfg = load_config(config_path, "output_dir")
+
+    # Output prefix naming
+    human_prefix = cfg.output_dir / f"{cfg.species_1}_{cfg.tissue}"
+    mouse_prefix = cfg.output_dir / f"{cfg.species_2}_{cfg.tissue}"
+
+    # Run for species 1
+    classifyOcrPromotersEnhancers(
+        ocrBedPath=str(cfg.species_1_peak_file),
+        tssBedPath=str(cfg.species_1_tss_file),
+        genomeFile=str(cfg.species_1_genome_fasta),
+        outputPrefix=str(human_prefix)
+    )
+
+    # Run for species 2
+    classifyOcrPromotersEnhancers(
+        ocrBedPath=str(cfg.species_2_peak_file),
+        tssBedPath=str(cfg.species_2_tss_file),
+        genomeFile=str(cfg.species_2_genome_fasta),
+        outputPrefix=str(mouse_prefix)
+    )
 
 
 def run_motif_analysis():
