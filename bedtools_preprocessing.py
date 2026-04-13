@@ -370,6 +370,48 @@ def preprocess_config(config_path: Path) -> Path:
         processed_config[mapping_key + "_cleaned"] = str(cleaned_file)
     
 
+    #Process TSS files
+    logger.info("Processing TSS files...")
+    
+    tss_keys = [
+        ("species_1_tss_file", raw_config.get("species_1", "species1")),
+        ("species_2_tss_file", raw_config.get("species_2", "species2")),
+    ]
+    
+    for tss_key, species_name in tss_keys:
+        if tss_key not in raw_config:
+            logger.warning(f"Skipping {tss_key} (not in config)")
+            continue
+        
+        tss_path = Path(raw_config[tss_key])
+        logger.info(f"  Processing {species_name} TSS: {tss_path}")
+        
+        # Resolve path (handles .gz)
+        try:
+            tss_path = resolve_file_path(tss_path, tss_key)
+        except FileNotFoundError as e:
+            logger.error(f"    Failed: {e}")
+            raise
+        
+        #Ensure unzipped
+        tss_path = ensure_unzipped(tss_path)
+        
+        #Extract BED3
+        cleaned_file = cleaned_dir / tss_path.name
+        
+        if cleaned_file.exists():
+            logger.info(f"    Cleaned file already exists: {cleaned_file}")
+        else:
+            try:
+                line_count = extract_bed3(tss_path, cleaned_file)
+                logger.info(f"    Extracted {line_count} lines -> {cleaned_file}")
+            except Exception as e:
+                logger.error(f"    Failed to extract BED3: {e}")
+                raise
+        
+        #Update config
+        processed_config[tss_key + "_cleaned"] = str(cleaned_file)
+
 
     #Write processed config    
     processed_path = config_path.with_stem(config_path.stem + ".processed")
