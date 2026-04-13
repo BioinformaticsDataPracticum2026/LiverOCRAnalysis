@@ -200,22 +200,61 @@ def classifyConservedRegions(
         logger.error(f"Error processing {conserved_bed_path}: {e}")
         raise
 
-#findSharedElements() --> Identify conserved regions that overlap native regulatory elements in the target species.
+
 def findSharedElements(
-        mappedFilePath: str,
-        nativeFilePath: str,
-        outputFilePath: str
-        ):
+        mapped_file_path: str,
+        native_file_path: str,
+        output_file_path: str
+) -> str:
+    """
+    Identify conserved regions that overlap native regulatory elements in target species.
+        - Finds mapped OCRs from one species that intersect with native
+        OCRs detected in another species, identifying true conserved regulatory elements.
+    
+    Inputs:
+        mapped_file_path : str -> Path to mapped/conserved OCR BED file (from source species, mapped to target).
+        native_file_path : str -> Path to native OCR BED file (detected in target species).
+        output_file_path : str -> Path for output BED file containing overlapping regions.
+    
+    Ouputs:
+        str -> Path to the output BED file with shared elements.
+    
+    Errors:
+        FileNotFoundError -> If input BED files do not exist.
+        ValueError -> If BED files are empty or invalid.
+    """
+    mapped_file_path = Path(mapped_file_path)
+    native_file_path = Path(native_file_path)
 
-    logging.info(f"Finding shared elements")
+    if not mapped_file_path.exists():
+        raise FileNotFoundError(f"Mapped BED file not found: {mapped_file_path}")
+    if not native_file_path.exists():
+        raise FileNotFoundError(f"Native BED file not found: {native_file_path}")
 
-    mapped = BedTool(mappedFilePath)
-    native = BedTool(nativeFilePath)
+    logging.info(f"Finding shared elements between {mapped_file_path} and {native_file_path}")
 
-    shared = mapped.intersect(native, u=True)
-    shared.saveas(outputFilePath)
+    try:
+        mapped = BedTool(mapped_file_path)
+        native = BedTool(native_file_path)
 
-    return outputFilePath
+        if len(mapped) == 0:
+            logger.warning("Mapped BED file is empty")
+        if len(native) == 0:
+            logger.warning("Native BED file is empty")        
+
+        logger.info(f"Loaded {len(mapped)} mapped regions and {len(native)} native regions")
+
+        #Find intersection regions
+        shared = mapped.intersect(native, u=True) #u=True -> Keeps only regions that intersect
+        shared.saveas(output_file_path)
+
+        logger.info(f"Found {len(shared)} shared elements: {output_file_path}")
+
+        return output_file_path
+
+    except Exception as e:
+        logger.error(f"Error finding shared elements: {e}")
+        raise
 
 if __name__ == "__main__":
 
