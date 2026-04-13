@@ -37,7 +37,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Configuration Class
+#Configuration Class
 @dataclass
 class Config:
     """Configuration for preprocessing pipeline."""
@@ -75,8 +75,8 @@ class Config:
         
         #Validate mapping files (if provided)
         for path, name in [
-            (self.species_1_to_species_2, f"Mapping {self.species_1}→{self.species_2}"),
-            (self.species_2_to_species_1, f"Mapping {self.species_2}→{self.species_1}"),
+            (self.species_1_to_species_2, f"Mapping {self.species_1} -> {self.species_2}"),
+            (self.species_2_to_species_1, f"Mapping {self.species_2} -> {self.species_1}"),
         ]:
             if path is None:
                 continue
@@ -108,21 +108,18 @@ class Config:
         return False
 
 
-#HELPER FUNCTIONS
-
+#Functions
 def gunzip_keep(src: Path, dst: Path) -> None:
     """
     Unzip a .gz file without deleting the original.
     
-    Parameters:
-    -----------
-    src : Path -> Path to .gz file
-    dst : Path -> Path to output unzipped file
+    Inputs:
+        src : Path -> Path to .gz file
+        dst : Path -> Path to output unzipped file
     
-    Raises:
-    -------
-    FileNotFoundError -> If source file doesn't exist
-    IOError -> If unzip operation fails
+    Errors:
+        FileNotFoundError -> If source file doesn't exist
+        IOError -> If unzip operation fails
     """
     if not src.exists():
         raise FileNotFoundError(f"Source file not found: {src}")
@@ -131,7 +128,7 @@ def gunzip_keep(src: Path, dst: Path) -> None:
         with gzip.open(src, "rb") as f_in:
             with open(dst, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
-        logger.debug(f"Unzipped: {src} → {dst}")
+        logger.debug(f"Unzipped: {src} -> {dst}")
     except Exception as e:
         logger.error(f"Failed to unzip {src}: {e}")
         raise
@@ -140,13 +137,11 @@ def ensure_unzipped(path: Path) -> Path:
     """
     Ensure file is unzipped, returning path to unzipped version.
     
-    Parameters:
-    -----------
-    path : Path -> Path to file (may be .gz)
+    Inputs:
+        path : Path -> Path to file (may be .gz)
     
-    Returns:
-    --------
-    Path -> Path to unzipped file
+    Ouputs:
+        Path -> Path to unzipped file
     """
 
     if path.suffix != ".gz":
@@ -165,25 +160,22 @@ def resolve_file_path(config_path: Path, key: str) -> Optional[Path]:
     """
     Resolve file path, checking for .gz variant if needed.
     
-    Parameters:
-    -----------
-    config_path : Path -> Path from config file
-    key : str -> Config key name (for logging)
+    Inputs:
+        config_path : Path -> Path from config file
+        key : str -> Config key name (for logging)
     
-    Returns:
-    --------
-    Optional[Path] -> Resolved path, or None if not found
+    Ouputs:
+        Optional[Path] -> Resolved path, or None if not found
     
-    Raises:
-    -------
-    FileNotFoundError -> If file and .gz variant don't exist
+    Errors:
+        FileNotFoundError -> If file and .gz variant don't exist
     """
     config_path = Path(config_path)
     
     if config_path.exists():
         return config_path
     
-    # Try .gz variant
+    #Try .gz variant
     if config_path.suffix != ".gz":
         gz_path = config_path.with_suffix(config_path.suffix + ".gz")
         if gz_path.exists():
@@ -192,129 +184,243 @@ def resolve_file_path(config_path: Path, key: str) -> Optional[Path]:
     
     raise FileNotFoundError(f"{key} not found: {config_path} (or .gz variant)")
 
-#extract_bed3() --> Extracts the first 3 columns of a BED file
-#Keeps only chrom, start, end
-def extract_bed3(input_path: Path, output_path: Path):
-    with open(output_path, "w") as out:
-        subprocess.run(
-            ["cut", "-f1-3", str(input_path)],
-            stdout=out,
-            check=True
-        )
+
+def extract_bed3(input_path: Path, output_path: Path) -> int:
+    """
+    Extract first 3 columns (BED3 format) from input file. Keeps only chrom, start, end
+    
+    Inputs:
+        input_path : Path -> Path to input BED file
+        output_path : Path -> Path to output BED3 file
+    
+    Ouputs:
+        int -> Number of lines in output file
+    
+    Errors:
+        FileNotFoundError -> If input file doesn't exist
+        subprocess.CalledProcessError -> If cut command fails
+    """
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    try:
+        with open(output_path, "w") as out:
+            result = subprocess.run(
+                ["cut", "-f1-3", str(input_path)],
+                stdout=out,
+                stderr=subprocess.PIPE,
+                check=True,
+                text=True
+            )
+        
+        # Count lines
+        with open(output_path) as f:
+            line_count = sum(1 for _ in f)
+        
+        logger.debug(f"Extracted BED3: {input_path} -> {output_path} ({line_count} lines)")
+        return line_count
+    
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to extract BED3 from {input_path}: {e.stderr}")
+        raise
 
 
-#load_config() --> Reads in a yaml file and intializes a config object
-def load_config(config_path: Path, output_dir_key: str) -> Config:
-    with open(config_path, "r") as f:
-        cfg = yaml.safe_load(f)
+def read_yaml_config(config_path: Path) -> Dict[str, Any]:
+    """
+    Reads in a YAML configuration file.
+    
+    Inputs:
+        config_path : Path -> Path to YAML config file
+    
+    Outputs:
+        Dict[str, Any] -> Parsed YAML configuration
+    
+    Errors:
+        FileNotFoundError -> If config file doesn't exist
+        yaml.YAMLError -> If YAML parsing fails
+    """
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+        logger.info(f"Loaded config: {config_path}")
+        return config
+    except yaml.YAMLError as e:
+        logger.error(f"Failed to parse YAML config: {e}")
+        raise
 
-    return Config(
-        species_1=cfg["species_1"],
-        species_2=cfg["species_2"],
-        tissue=cfg["tissue"],
 
-        output_dir=Path(cfg[output_dir_key]),
-        temp_dir=Path(cfg["temp_dir"]),
-
-        species_1_peak_file=Path(cfg["species_1_peak_file_cleaned"]),
-        species_2_peak_file=Path(cfg["species_2_peak_file_cleaned"]),
-
-        species_1_to_species_2=Path(cfg["species_1_to_species_2_cleaned"])
-            if "species_1_to_species_2_cleaned" in cfg else None,
-        species_2_to_species_1=Path(cfg["species_2_to_species_1_cleaned"])
-            if "species_2_to_species_1_cleaned" in cfg else None,
-
-        species_1_tss_file=Path(cfg["species_1_TSS_file"]),
-        species_2_tss_file=Path(cfg["species_2_TSS_file"]),
-    )
-
-
-# Preprocessing
-HALPER_KEYS = [
-    "species_1_to_species_2",
-    "species_2_to_species_1",
-]
-
-ATACSEQ_KEYS = [
-    "species_1_peak_file",
-    "species_2_peak_file",
-]
-
-"""
-preprocess_config()
-    Input: YAML file for the configuration
-
-    Tasks:
-        - Unzips HALPER files
-        - Extracts first three columns from ATAC-SEQ + HALPER files
-        - Writes new processed config
-
-    Returns:
-        Path to processed config
- """
 def preprocess_config(config_path: Path) -> Path:
-
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-
-    cleaned_dir = Path(config["bedtool_preprocess_output_dir"])
+    """
+    Preprocess raw configuration file and BED files.
+    
+    Steps:
+        1. Load YAML config
+        2. Unzip any .gz files (preserving originals)
+        3. Extract BED3 format (first 3 columns)
+        4. Write processed config with paths to cleaned files
+    
+    Inputs:
+        config_path : Path -> Path to original YAML config file
+    
+    Ouputs:
+        Path -> Path to processed config file
+    
+    Errors:
+        FileNotFoundError -> If required files don't exist
+        yaml.YAMLError -> If config parsing fails
+    """
+    config_path = Path(config_path)
+    logger.info(f"Starting preprocessing: {config_path}")
+    
+    #Load original config
+    raw_config = read_yaml_config(config_path)
+    
+    #Create output directory
+    cleaned_dir = Path(raw_config.get("bedtool_preprocess_output_dir", "temp/cleaned_bed"))
     cleaned_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Output directory: {cleaned_dir}")
+    
+    #Process configuration
+    processed_config = raw_config.copy()
 
 
-    #Process HALPER files
-    for key in HALPER_KEYS:
-        if key not in config:
+    #Process ATAC-seq peak files
+    logger.info("Processing ATAC-seq peak files...")
+    
+    for species_key, species_name in [
+        ("species_1_peak_file", raw_config.get("species_1", "species1")),
+        ("species_2_peak_file", raw_config.get("species_2", "species2")),
+    ]:
+        if species_key not in raw_config:
+            logger.warning(f"Skipping {species_key} (not in config)")
             continue
-
-        halper_path = Path(config[key])
-
-        #If HALPER files are unzipped/missing -> Try .gz extension
-        if not halper_path.exists():
-            gz_path = halper_path.with_name(halper_path.name + ".gz")
-            if gz_path.exists():
-                halper_path = gz_path
-            else:
-                raise FileNotFoundError(f"{halper_path} not found")
-
-        #Ensure HALPER files are unzipped
-        halper_path = ensure_unzipped(halper_path)
-
-        # Extract first three columns of BED files
-        cleaned_file = cleaned_dir / halper_path.name
-        if not cleaned_file.exists():
-            extract_bed3(halper_path, cleaned_file)
-
-        config[key + "_cleaned"] = str(cleaned_file)
-
-
-    # Process ATACSEQ files
-    for key in ATACSEQ_KEYS:
-        peak_path = Path(config[key])
-        ensure_exists(peak_path, "Peak file")
-
+        
+        peak_path = Path(raw_config[species_key])
+        logger.info(f"  Processing {species_name} peaks: {peak_path}")
+        
+        #Resolve path (handles .gz)
+        try:
+            peak_path = resolve_file_path(peak_path, species_key)
+        except FileNotFoundError as e:
+            logger.error(f"    Failed: {e}")
+            raise
+        
+        #Ensure unzipped
+        peak_path = ensure_unzipped(peak_path)
+        
+        #Extract BED3
         cleaned_file = cleaned_dir / peak_path.name
-        if not cleaned_file.exists():
-            extract_bed3(peak_path, cleaned_file)
+        if cleaned_file.exists():
+            logger.info(f"    Cleaned file already exists: {cleaned_file}")
+        else:
+            try:
+                line_count = extract_bed3(peak_path, cleaned_file)
+                logger.info(f"    Extracted {line_count} lines -> {cleaned_file}")
+            except Exception as e:
+                logger.error(f"    Failed to extract BED3: {e}")
+                raise
+        
+        #Update config with cleaned path
+        processed_config[species_key + "_cleaned"] = str(cleaned_file)
+    
 
-        config[key + "_cleaned"] = str(cleaned_file)
+
+    #Process HALPER mapping files
+    logger.info("Processing HALPER mapping files...")
+    
+    mapping_keys = [
+        ("species_1_to_species_2", "species_1 -> species_2"),
+        ("species_2_to_species_1", "species_2 -> species_1"),
+    ]
+    
+    for mapping_key, mapping_name in mapping_keys:
+        if mapping_key not in raw_config:
+            logger.debug(f"  Skipping {mapping_key} (not in config)")
+            continue
+        
+        mapping_path = Path(raw_config[mapping_key])
+        logger.info(f"  Processing {mapping_name} mapping: {mapping_path}")
+        
+        # Resolve path (handles .gz)
+        try:
+            mapping_path = resolve_file_path(mapping_path, mapping_key)
+        except FileNotFoundError as e:
+            logger.error(f"    Failed: {e}")
+            raise
+        
+        #Ensure unzipped
+        mapping_path = ensure_unzipped(mapping_path)
+        
+        #Extract BED3
+        cleaned_file = cleaned_dir / mapping_path.name
+        if cleaned_file.exists():
+            logger.info(f"    Cleaned file already exists: {cleaned_file}")
+        else:
+            try:
+                line_count = extract_bed3(mapping_path, cleaned_file)
+                logger.info(f"    Extracted {line_count} lines -> {cleaned_file}")
+            except Exception as e:
+                logger.error(f"    Failed to extract BED3: {e}")
+                raise
+        
+        #Update config with cleaned path
+        processed_config[mapping_key + "_cleaned"] = str(cleaned_file)
+    
 
 
-    # Write new config
-    processed_path = config_path.with_suffix(".processed.yaml")
-    with open(processed_path, "w") as f:
-        yaml.dump(config, f)
-
-    print(f"Processed config written to: {processed_path}")
-
+    #Write processed config    
+    processed_path = config_path.with_stem(config_path.stem + ".processed")
+    try:
+        with open(processed_path, "w") as f:
+            yaml.dump(processed_config, f, default_flow_style=False, sort_keys=False)
+        logger.info(f"Processed config written: {processed_path}")
+    except Exception as e:
+        logger.error(f"Failed to write processed config: {e}")
+        raise
+    
+    logger.info(f"Preprocessing complete!")
     return processed_path
+ 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Preprocess BED files for bedtools pipeline")
-    parser.add_argument("--config", required=True, help="Path to YAML config file")
-
+    parser = argparse.ArgumentParser(
+        description="Preprocess BED files for OCR classification pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python bedtools_preprocessing.py --config config.yaml
+  python bedtools_preprocessing.py --config config.yaml --log-level DEBUG
+        """,
+    )
+    
+    parser.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Path to YAML configuration file",
+    )
+    
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level (default: INFO)",
+    )
+    
     args = parser.parse_args()
-
-    processed_config_path = preprocess_config(Path(args.config))
-    print(f"Preprocessing done! Processed config: {processed_config_path}")
+    
+    #Set log level
+    logger.setLevel(getattr(logging, args.log_level))
+    
+    try:
+        processed_config_path = preprocess_config(args.config)
+        logger.info(f"✓ Preprocessing successful")
+        logger.info(f"✓ Use processed config for classification: {processed_config_path}")
+        print(f"\nProcessed config: {processed_config_path}")
+    except Exception as e:
+        logger.error(f"✗ Preprocessing failed: {e}", exc_info=True)
+        exit(1)
