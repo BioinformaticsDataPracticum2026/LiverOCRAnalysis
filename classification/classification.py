@@ -126,32 +126,79 @@ def classifyOcrPromotersEnhancers(
         logger.error(f"Error processing {ocr_bed_path}: {e}")
         raise
 
-#classifyConservedRegions() --> Assigns promoter/enhancer labels to mapped (conserved) regions using TSS distance.
 def classifyConservedRegions(
-        conservedBedPath: str,
-        tssBedPath: str,
-        outputPrefix: str,
-        promoterDistance: int = 2000
-        ):
+        conserved_bed_path: str,
+        tss_bed_path: str,
+        output_prefix: str,
+        promoter_distance: int = 2000
+) -> Tuple[str, str]:
+    """
+    Classify conserved/mapped regions as promoters or enhancers using TSS distance.
+    
+    Inputs:
+        conserved_bed_path : str -> Path to the conserved/mapped OCR BED file.
+        tss_bed_path : str -> Path to the TSS BED file (1bp per TSS).
+        output_prefix : str -> Prefix for output files. Outputs will be saved as:
+            - {output_prefix}_promoters.bed
+            - {output_prefix}_enhancers.bed
+            - {output_prefix}_TSS.bed (annotated)
+        promoter_distance : int, optional -> Distance threshold for promoter classification (default: 2000 bp).
+    
+    Outputs:
+        Tuple[str, str] -> Paths to promoters and enhancers BED files.
+    
+    Errors:
+        FileNotFoundError -> If input BED files do not exist.
+        ValueError -> If BED files are empty or invalid.
+    """
+    conserved_bed_path = Path(conserved_bed_path)
+    tss_bed_path = Path(tss_bed_path)
 
-    logging.info(f"Processing conserved regions: {conservedBedPath}")
+    if not conserved_bed_path.exists():
+        raise FileNotFoundError(f"Conserved BED file not found: {conserved_bed_path}")
+    if not tss_bed_path.exists():
+        raise FileNotFoundError(f"TSS BED file not found: {tss_bed_path}")
 
-    conserved = BedTool(conservedBedPath)
-    tss = BedTool(tssBedPath)
+    logging.info(f"Processing conserved regions: {conserved_bed_path}")
 
-    # Annotate distance
-    annotated = conserved.closest(tss, d=True)
-    annotated.saveas(f"{outputPrefix}_TSS.bed")
+    try:
+        conserved = BedTool(conserved_bed_path)
+        tss = BedTool(tss_bed_path)
 
-    # Split promoter/enhancer
-    promoters = annotated.filter(lambda x: int(x[-1]) <= promoterDistance).saveas(
-        f"{outputPrefix}_promoters.bed"
-    )
-    enhancers = annotated.filter(lambda x: int(x[-1]) >  promoterDistance).saveas(
-        f"{outputPrefix}_enhancers.bed"
-    )
+        if len(conserved) == 0:
+            raise ValueError("Conserved BED file is empty")
+        if len(tss) == 0:
+            raise ValueError("TSS BED file is empty")
+        
+        logger.info(f"Loaded {len(conserved)} conserved regions and {len(tss)} TSSs")
 
-    return promoters, enhancers
+        #Annotate distance to nearest TSS
+        tss_path = f"{output_prefix}_TSS.bed"
+        annotated = conserved.closest(tss, d=True)
+        annotated.saveas(tss_path)
+        logger.info(f"Saved annotated conserved regions: {tss_path}")
+
+        #Split into promoters
+        promoters_path = f"{output_prefix}_promoters.bed"
+        promoters = annotated.filter(lambda x: int(x[-1]) <= promoter_distance).saveas(promoters_path)
+        logger.info(
+            f"Classified {len(promoters)} conserved promoters "
+            f"(<= {promoter_distance} bp): {promoters_path}"
+        )
+
+        #Split into enhancers
+        enhancers_path = f"{output_prefix}_enhancers.bed"
+        enhancers = annotated.filter(lambda x: int(x[-1]) >  promoter_distance).saveas(enhancers_path)
+        logger.info(
+            f"Classified {len(enhancers)} conserved enhancers "
+            f"(> {promoter_distance} bp): {enhancers_path}"
+        )
+
+        return promoters_path, enhancers_path
+    
+    except Exception as e:
+        logger.error(f"Error processing {conserved_bed_path}: {e}")
+        raise
 
 #findSharedElements() --> Identify conserved regions that overlap native regulatory elements in the target species.
 def findSharedElements(
