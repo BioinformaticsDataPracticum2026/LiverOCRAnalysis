@@ -45,7 +45,7 @@ def classifyOcrPromotersEnhancers(
 ) -> Dict[str, str]:
     """
     Classify OCRs as promoters or enhancers based on distance to nearest TSS.
-    Promoters defined as OCRs within promoter_distance bp of a TSS.
+    Promoters are OCRs within promoter_distance of a TSS.
     Enhancers are OCRs beyond that distance.
     
     Inputs:
@@ -100,16 +100,14 @@ def classifyOcrPromotersEnhancers(
         promoters_path = f"{output_prefix}_promoters.bed"
         ocr_promoters = ocr_with_genes.filter(lambda x: int(x[-1]) <= promoter_distance).saveas(promoters_path)
         logger.info(
-            f"Classified {len(ocr_promoters)} promoters (<=  {promoter_distance} bp): "
-            f"{promoters_path}"
+            f"Classified {len(ocr_promoters)} promoters (<=  {promoter_distance} bp): {promoters_path}"
         )
 
         #Classify OCRs into enhancers by distance
         enhancers_path = f"{output_prefix}_enhancers.bed"
         ocr_enhancers = ocr_with_genes.filter(lambda x: int(x[-1]) > promoter_distance).saveas(f"{output_prefix}_enhancers.bed")
         logger.info(
-            f"Classified {len(ocr_enhancers)} enhancers (> {promoter_distance} bp): "
-            f"{enhancers_path}"
+            f"Classified {len(ocr_enhancers)} enhancers (> {promoter_distance} bp): {enhancers_path}"
         )
 
         logging.info(f"Finished processing {ocr_bed_path}")
@@ -181,16 +179,14 @@ def classifyConservedRegions(
         promoters_path = f"{output_prefix}_promoters.bed"
         promoters = annotated.filter(lambda x: int(x[-1]) <= promoter_distance).saveas(promoters_path)
         logger.info(
-            f"Classified {len(promoters)} conserved promoters "
-            f"(<= {promoter_distance} bp): {promoters_path}"
+            f"Classified {len(promoters)} conserved promoters (<= {promoter_distance} bp): {promoters_path}"
         )
 
         #Split into enhancers
         enhancers_path = f"{output_prefix}_enhancers.bed"
         enhancers = annotated.filter(lambda x: int(x[-1]) >  promoter_distance).saveas(enhancers_path)
         logger.info(
-            f"Classified {len(enhancers)} conserved enhancers "
-            f"(> {promoter_distance} bp): {enhancers_path}"
+            f"Classified {len(enhancers)} conserved enhancers (> {promoter_distance} bp): {enhancers_path}"
         )
 
         return promoters_path, enhancers_path
@@ -286,9 +282,7 @@ def run_classification(config_path: Path) -> None:
     try:
         import yaml
     except ImportError:
-        logger.error(
-            "PyYAML not found. Install with: pip install pyyaml"
-        )
+        logger.error("PyYAML not found. Install with: pip install pyyaml")
         raise
     
     config_path = Path(config_path)
@@ -305,30 +299,49 @@ def run_classification(config_path: Path) -> None:
         raise
     
     #Extract parameters
-    species_config = config.get("species", {})
-    mapping_config = config.get("mapping", {})
     params = config.get("parameters", {})
-    
     promoter_distance = params.get("promoter_distance", 2000)
     logger.info(f"Using promoter distance threshold: {promoter_distance} bp")
+
+    # Build species config from flat structure
+    species_1_name = config.get("species_1")
+    species_2_name = config.get("species_2")
+
+    species_config = {
+        species_1_name: {
+            "ocr_bed_cleaned": config.get("species_1_peak_file_cleaned"),
+            "tss_bed_cleaned": config.get("species_1_tss_file_cleaned"),
+            "output_prefix": f"results/{species_1_name}",
+        },
+        species_2_name: {
+            "ocr_bed_cleaned": config.get("species_2_peak_file_cleaned"),
+            "tss_bed_cleaned": config.get("species_2_tss_file_cleaned"),
+            "output_prefix": f"results/{species_2_name}",
+        }
+    }
+
+    # Build mapping config
+    mapping_config = {}
+    if config.get("species_1_to_species_2_cleaned"):
+        mapping_config[f"{species_1_name}_to_{species_2_name}"] = config.get("species_1_to_species_2_cleaned")
+    if config.get("species_2_to_species_1_cleaned"):
+        mapping_config[f"{species_2_name}_to_{species_1_name}"] = config.get("species_2_to_species_1_cleaned")
     
     #Step 1: Classify native OCRs in each species
     classification_results = {}
     for species_name, species_data in species_config.items():
-        logger.info(f"\n{'='*70}")
-        logger.info(f"STEP 1: Classifying native OCRs for {species_name}")
-        logger.info(f"{'='*70}")
+        logger.info(f"Step 1: Classifying native OCRs for {species_name}")
         
         result = classifyOcrPromotersEnhancers(
-            ocr_bed_path=species_data["ocr_bed"],
-            tss_bed_path=species_data["tss_bed"],
+            ocr_bed_path=species_data["ocr_bed_cleaned"],
+            tss_bed_path=species_data["tss_bed_cleaned"],
             output_prefix=species_data["output_prefix"],
             promoter_distance=promoter_distance,
         )
         classification_results[species_name] = result
     
     #Step 2: Classify mapped/conserved OCRs
-    logger.info("STEP 2: Classifying mapped/conserved OCRs")
+    logger.info("Step 2: Classifying mapped/conserved OCRs")
     
     mapping_results = {}
     for mapping_name, mapping_data in mapping_config.items():
@@ -341,14 +354,7 @@ def run_classification(config_path: Path) -> None:
         source_species, target_species = parts
         logger.info(f"\nProcessing mapping: {source_species} → {target_species}")
         
-        #Get target species TSS for annotation
-        if target_species not in species_config:
-            logger.warning(
-                f"Target species '{target_species}' not found in config. Skipping."
-            )
-            continue
-        
-        target_tss = species_config[target_species]["tss_bed"]
+        target_tss = species_config[target_species]["tss_bed_cleaned"]
         output_prefix = f"{species_config[target_species]['output_prefix']}_mapped_from_{source_species}"
         
         #Classify mapped regions
@@ -365,7 +371,7 @@ def run_classification(config_path: Path) -> None:
         }
     
     #Step 3: Find shared regulatory elements across species
-    logger.info("STEP 3: Finding shared regulatory elements")
+    logger.info("Step 3: Finding shared regulatory elements")
     
     shared_results = {}
     for mapping_name, mapping_data in mapping_config.items():
@@ -375,22 +381,16 @@ def run_classification(config_path: Path) -> None:
         
         source_species, target_species = parts
         
-        if source_species not in species_config or target_species not in species_config:
-            logger.warning(f"Skipping mapping with missing species config: {mapping_name}")
-            continue
-        
         logger.info(f"\nFinding shared elements: {mapping_name}")
         
         #Find overlap between mapped and native OCRs
-        mapped_ocrs = mapping_data
-        native_ocrs = species_config[target_species]["ocr_bed"]
+        native_ocrs = species_config[target_species]["ocr_bed_cleaned"]
         output_file = (
-            f"{species_config[target_species]['output_prefix']}"
-            f"_shared_from_{source_species}.bed"
+            f"{species_config[target_species]['output_prefix']}_shared_from_{source_species}.bed"
         )
         
         shared_path = findSharedElements(
-            mapped_file_path=mapped_ocrs,
+            mapped_file_path=mapping_data,
             native_file_path=native_ocrs,
             output_file_path=output_file,
         )
@@ -398,9 +398,7 @@ def run_classification(config_path: Path) -> None:
         shared_results[mapping_name] = shared_path
     
     #Print summary
-    logger.info(f"\n{'='*70}")
-    logger.info("CLASSIFICATION PIPELINE COMPLETE")
-    logger.info(f"{'='*70}")
+    logger.info("Classification Complete")
     logger.info("Classification Results:")
     for species, files in classification_results.items():
         logger.info(f"  {species}:")
@@ -426,8 +424,8 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  ./classify_ocr.py --config config.yaml
-  ./classify_ocr.py --config /path/to/config.yaml --log-level DEBUG
+  python3 classification.py --config config.processed.yaml
+  python3 classification.py --config /path/to/config.processed.yaml 
         """,
     )
     parser.add_argument(
