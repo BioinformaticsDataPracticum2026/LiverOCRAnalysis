@@ -1,0 +1,18 @@
+species_1: human
+species_2: mouse
+
+tissue: liver
+
+species_1_peak_file: /ocean/projects/bio230007p/tliu16/project/atacSeqPeaks/humanIDRConservedPeaks.gz
+species_2_peak_file: /ocean/projects/bio230007p/tliu16/project/atacSeqPeaks/mouseIDRConservedPeaks.gz
+
+species_1_tss_file: /ocean/projects/bio230007p/tliu16/project/tssAnnotations/gencode.v41.annotation.bed
+species_2_tss_file: /ocean/projects/bio230007p/tliu16/project/tssAnnotations/gencode.vM30.annotation.bed
+
+species_1_to_species_2: /ocean/projects/bio230007p/tliu16/project/alignment/human_liver.HumanToMouse.HALPER.narrowPeak.gz
+species_2_to_species_1: /ocean/projects/bio230007p/tliu16/project/alignment/mouse_liver.MouseToHuman.HALPER.narrowPeak.gz
+
+bedtool_preprocess_output_dir: /ocean/projects/bio230007p/tliu16/project/cleanedBed
+
+parameters:
+  promoter_distance: 2000

@@ -6,9 +6,9 @@ Pipeline poriton to classify OCRs as promoters/enhancers and compare regulatory 
 Usage:
     ./classify_ocr.py --config /path/to/config.yaml
     
-SLURM Script:
+Sample SLURM Script:
     #!/bin/bash
-    #SBATCH -J classification
+    #SBATCH -J ocr_classification
     #SBATCH -p RM-shared
     #SBATCH -N 1
     #SBATCH -n 2
@@ -18,9 +18,13 @@ SLURM Script:
     #SBATCH -e logs/classification_%j.err
     #SBATCH --mail-type=END,FAIL
     #SBATCH --mail-user=alfredl@andrew.cmu.edu
+
+    #Load anaconda and activate environment
     module load anaconda3
     conda activate my_bio_env
-    ./classify_ocr.py --config /path/to/config.yaml
+
+    #Run the classification pipeline
+    python3 classification.py --config config.processed.yaml
 """
 
 from pathlib import Path
@@ -148,9 +152,11 @@ def classifyConservedRegions(
         FileNotFoundError -> If input BED files do not exist.
         ValueError -> If BED files are empty or invalid.
     """
+    #Assign file paths to variables
     conserved_bed_path = Path(conserved_bed_path)
     tss_bed_path = Path(tss_bed_path)
 
+    #Check that input files exist
     if not conserved_bed_path.exists():
         raise FileNotFoundError(f"Conserved BED file not found: {conserved_bed_path}")
     if not tss_bed_path.exists():
@@ -159,9 +165,11 @@ def classifyConservedRegions(
     logging.info(f"Processing conserved regions: {conserved_bed_path}")
 
     try:
+        #Load BED files
         conserved = BedTool(conserved_bed_path)
         tss = BedTool(tss_bed_path)
 
+        #Check that BEDfiles are non-empty
         if len(conserved) == 0:
             raise ValueError("Conserved BED file is empty")
         if len(tss) == 0:
@@ -191,6 +199,7 @@ def classifyConservedRegions(
 
         return promoters_path, enhancers_path
     
+    #Error if conserved region classification fails
     except Exception as e:
         logger.error(f"Error processing {conserved_bed_path}: {e}")
         raise
@@ -218,9 +227,11 @@ def findSharedElements(
         FileNotFoundError -> If input BED files do not exist.
         ValueError -> If BED files are empty or invalid.
     """
+    #Assign file paths to variables
     mapped_file_path = Path(mapped_file_path)
     native_file_path = Path(native_file_path)
 
+    #Check that input files exist
     if not mapped_file_path.exists():
         raise FileNotFoundError(f"Mapped BED file not found: {mapped_file_path}")
     if not native_file_path.exists():
@@ -229,9 +240,11 @@ def findSharedElements(
     logging.info(f"Finding shared elements between {mapped_file_path} and {native_file_path}")
 
     try:
+        #Load in BED files
         mapped = BedTool(mapped_file_path)
         native = BedTool(native_file_path)
 
+        #Check that BED files are non-empty
         if len(mapped) == 0:
             logger.warning("Mapped BED file is empty")
         if len(native) == 0:
@@ -247,6 +260,7 @@ def findSharedElements(
 
         return output_file_path
 
+    #Error if identification of shared elements fails
     except Exception as e:
         logger.error(f"Error finding shared elements: {e}")
         raise
@@ -279,6 +293,7 @@ def run_classification(config_path: Path) -> None:
     Inputs:
         config_path : Path -> Path to YAML configuration file.
     """
+    #Import yaml -> Config is a yaml file
     try:
         import yaml
     except ImportError:
@@ -291,6 +306,7 @@ def run_classification(config_path: Path) -> None:
     
     logger.info(f"Loading configuration from {config_path}")
     
+    #Read in config file
     try:
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -303,10 +319,12 @@ def run_classification(config_path: Path) -> None:
     promoter_distance = params.get("promoter_distance", 2000)
     logger.info(f"Using promoter distance threshold: {promoter_distance} bp")
 
-    # Build species config from flat structure
+    #Build species config
+    #Get species names
     species_1_name = config.get("species_1")
     species_2_name = config.get("species_2")
 
+    #Get file paths for species
     species_config = {
         species_1_name: {
             "ocr_bed_cleaned": config.get("species_1_peak_file_cleaned"),
@@ -320,7 +338,7 @@ def run_classification(config_path: Path) -> None:
         }
     }
 
-    # Build mapping config
+    #Build mapping config
     mapping_config = {}
     if config.get("species_1_to_species_2_cleaned"):
         mapping_config[f"{species_1_name}_to_{species_2_name}"] = config.get("species_1_to_species_2_cleaned")
