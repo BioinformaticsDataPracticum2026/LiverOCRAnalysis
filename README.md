@@ -1,5 +1,6 @@
 # LiverOCRAnalysis
 
+
 ## Overview
 
 This repository contains a pipeline for analyzing open chromatin regions (OCRs) in human and mouse and comparing regulatory activity across species.
@@ -46,3 +47,14 @@ pip install -r requirements.txt
 * HALPER
 * HOMER
 * GREAT / rGREAT
+
+
+## Usage
+
+
+
+## Demo 
+
+
+
+#
