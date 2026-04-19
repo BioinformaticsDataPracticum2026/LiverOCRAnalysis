@@ -30,6 +30,7 @@ Other files:
 - `main.py` 
 - `requirements.txt`  
 
+NEED TO TALK ABOUT INPUT + OUTPUT OF PIPELINE
 ---
 
 ## Dependencies
