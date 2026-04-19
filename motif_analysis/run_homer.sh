@@ -2,30 +2,61 @@
 #SBATCH -J enrichment_all
 #SBATCH -p RM-shared
 #SBATCH -N 1
-#SBATCH -n 8  
+#SBATCH -c 4
 #SBATCH -t 12:00:00
-#SBATCH --mem-per-cpu=2000M
+#SBATCH --mem=16G
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=smakkar@andrew.cmu.edu
 
-export PATH=$PATH:/jet/home/smakkar/enrichment/homer/bin/
+export PATH="$PATH:/jet/home/smakkar/enrichment/homer/bin"
 
-#directories
 INPUT_DIR="/jet/home/smakkar/enrichment/raw_results"
 BASE_OUT="/jet/home/smakkar/enrichment/results"
 
-mkdir -p $BASE_OUT/human_promoters
-mkdir -p $BASE_OUT/human_enhancers
+PROMOTER_BED="$INPUT_DIR/human_promoters.bed"
+ENHANCER_BED="$INPUT_DIR/human_enhancers.bed"
 
-echo "Starting all HOMER analyses concurrently"
+PROMOTER_OUT="$BASE_OUT/human_promoters"
+ENHANCER_OUT="$BASE_OUT/human_enhancers"
 
-# Human Promoters (hg38)
-findMotifsGenome.pl $INPUT_DIR/human_promoters.bed hg38 $BASE_OUT/human_promoters -size 200 -mask -p 2 &
+mkdir -p "$PROMOTER_OUT"
+mkdir -p "$ENHANCER_OUT"
 
-# Human Enhancers (hg38)
-findMotifsGenome.pl $INPUT_DIR/human_enhancers.bed hg38 $BASE_OUT/human_enhancers -size 200 -mask -p 2 &
+echo "Job started: $(date)"
 
+echo "Checking HOMER..."
+which findMotifsGenome.pl || { echo "ERROR: HOMER not found"; exit 1; }
 
-wait
+echo "Checking input files..."
+[ -f "$PROMOTER_BED" ] || { echo "ERROR: Missing $PROMOTER_BED"; exit 1; }
+[ -f "$ENHANCER_BED" ] || { echo "ERROR: Missing $ENHANCER_BED"; exit 1; }
 
-echo "All motif analyses complete!"
+echo "Launching promoter analysis..."
+findMotifsGenome.pl "$PROMOTER_BED" hg38 "$PROMOTER_OUT" -size 200 -mask -p 2 \
+  > "$PROMOTER_OUT/run.log" 2>&1 &
+PID1=$!
+
+echo "Launching enhancer analysis..."
+findMotifsGenome.pl "$ENHANCER_BED" hg38 "$ENHANCER_OUT" -size 200 -mask -p 2 \
+  > "$ENHANCER_OUT/run.log" 2>&1 &
+PID2=$!
+
+echo "Waiting for promoter job to finish..."
+wait $PID1
+STATUS1=$?
+echo "Promoter job finished with exit code: $STATUS1"
+
+echo "Waiting for enhancer job to finish..."
+wait $PID2
+STATUS2=$?
+echo "Enhancer job finished with exit code: $STATUS2"
+
+if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ]; then
+    echo "ERROR: One or more jobs failed"
+    echo "Check logs:"
+    echo "  $PROMOTER_OUT/run.log"
+    echo "  $ENHANCER_OUT/run.log"
+    exit 1
+fi
+
+echo "All motif analyses completed successfully at $(date)"
