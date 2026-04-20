@@ -100,6 +100,13 @@ BiocManager::install("rGREAT")
 
 ---
 
+
+
+
+
+
+
+
 ## Usage
 
 Each step can be run independently or you can run the full pipeline
@@ -116,20 +123,45 @@ Before running LiverOCRAnalysis, you should have:
 
 ---
 
-### Example: Run Alignment Only
+### To run individual modules
 
 ```bash
-python main.py --step alignment
-```
-### Example: Full LiverOCRAnalysis
+#Alignment
+python main.py alignment \
+  --human-peaks data/human_peaks.narrowPeak \
+  --mouse-peaks data/mouse_peaks.narrowPeak \
+  --hal-file data/10plusway.hal
+
+#Classification
+python main.py classification \
+  --config classification/sample_config.yaml
+
+#Motif Analysis
+python main.py motif
+
+#Annotate peaks
+python main.py annotate \
+  --bed-dir results \
+  --outdir results/annotated
+
+#GREAT analysis
+python main.py great \
+  --bed-dir results \
+  --outdir results/great \
+  --species hg38
+  ```
+
+### To Run Full LiverOCRAnalysis
 
 ```bash
-python main.py --step alignment
-# wait until job finishes
-python main.py --step classification --config ...
-python main.py --step motif
-python main.py --step annotate
+python main.py full \
+  --human-peaks data/human_peaks.narrowPeak \
+  --mouse-peaks data/mouse_peaks.narrowPeak \
+  --hal-file data/10plusway.hal \
+  --config classification/sample_config.yaml
 ```
+
+
 
 
 
