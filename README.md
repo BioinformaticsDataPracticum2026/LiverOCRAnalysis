@@ -38,7 +38,7 @@ Other files:
 
 ## Installation
 
-# Dependencies
+### Dependencies
 
 You can Install LiverOCRAnalysis with:
 
@@ -52,7 +52,7 @@ Option2:
 conda install ...
 ```
 
-# External tools required:
+### External tools required:
 
 * [BEDTools](https://bedtools.readthedocs.io/en/latest/) (v2.31)
 * [HALPER](https://github.com/pfenninglab/halLiftover-postprocessing)
