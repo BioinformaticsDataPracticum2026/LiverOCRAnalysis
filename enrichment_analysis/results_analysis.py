@@ -23,7 +23,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 
 #Results directory -> Contains all output TSV files from rGREAT
 results_dir = Path("results/enrichment_results")
-output_dir = Path("enrichment_analysis/results_summaries")
+output_dir = Path("results/enrichment_results/results_summaries")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 #Filtering thresholds
@@ -61,17 +61,27 @@ def normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     name_mapping = {
         'Binomial p-value': 'pval',
         'p-value': 'pval',
+        'Binom_Raw_PValue': 'pval',
+        'Hyper_Raw_PValue': 'pval',
         'FDR': 'fdr',
         'Adjusted p-value': 'fdr',
+        'Binom_Adjp_BH': 'fdr',
+        'Hyper_Adjp_BH': 'fdr',
         'Fold enrichment': 'fold_enrichment',
         'Fold Change': 'fold_enrichment',
+        'Binom_Fold_Enrichment': 'fold_enrichment',
+        'Hyper_Fold_Enrichment': 'fold_enrichment',
         'Observed genes': 'observed_genes',
         'Observed Genes': 'observed_genes',
         '# of Observed Genes': 'observed_genes',
+        'Binom_Observed_Region_Hits': 'observed_genes',
+        'Hyper_Observed_Gene_Hits': 'observed_genes',
         'Term': 'term',
         'Term name': 'term',
+        'name': 'term',
         'Ontology ID': 'term_id',
         'Term ID': 'term_id',
+        'ID': 'term_id',
     }
     
     #Apply mapping where applicable
@@ -111,7 +121,7 @@ def filter_results(df: pd.DataFrame) -> pd.DataFrame:
         df = df[pd.to_numeric(df[observed_col], errors='coerce') >= min_observed_genes]
     
     filtered_rows = len(df)
-    print(f"  Filtered {initial_rows} → {filtered_rows} rows (p<{min_pval}, fold>{min_fold_enrichment}, genes>{min_observed_genes})")
+    print(f"  Filtered {initial_rows} -> {filtered_rows} rows (p<{min_pval}, fold>{min_fold_enrichment}, genes>{min_observed_genes})")
     
     return df
 
@@ -140,6 +150,7 @@ def plot_top_terms(df: pd.DataFrame, filename: str, n: int = 15):
     top_terms = get_top_terms(df, n=n, sort_by="fold_enrichment")
     
     if len(top_terms) == 0:
+        print(f"  Warning: No top terms to plot for {filename}")
         return
     
     #Prepare data
@@ -147,6 +158,7 @@ def plot_top_terms(df: pd.DataFrame, filename: str, n: int = 15):
     fold_col = 'fold_enrichment' if 'fold_enrichment' in top_terms.columns else None
     
     if not fold_col:
+        print(f"  Warning: No fold enrichment column in {filename}. Available: {list(top_terms.columns)}")
         return
     
     top_terms[fold_col] = pd.to_numeric(top_terms[fold_col], errors='coerce')
@@ -165,6 +177,7 @@ def plot_top_terms(df: pd.DataFrame, filename: str, n: int = 15):
     output_path = output_dir / filename.replace(".tsv", "_top_terms.png")
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
+    print(f"Saved top_terms plot to {output_path}")
 
 
 def plot_volcano(df: pd.DataFrame, filename: str):
@@ -176,6 +189,7 @@ def plot_volcano(df: pd.DataFrame, filename: str):
     observed_col = 'observed_genes' if 'observed_genes' in df.columns else None
     
     if not fold_col or pval_col not in df.columns:
+        print(f"Warning: Could not create volcano plot for {filename} (missing columns: fold={fold_col}, pval={pval_col})")
         return
     
     #Convert to numeric
@@ -183,6 +197,10 @@ def plot_volcano(df: pd.DataFrame, filename: str):
     df[pval_col] = pd.to_numeric(df[pval_col], errors='coerce')
     df = df.dropna(subset=[fold_col, pval_col])
     
+    if len(df) == 0:
+        print(f"  Warning: No data after conversion for {filename}")
+        return
+
     #Calculate -log10 p-value
     df['neg_log10_pval'] = -np.log10(df[pval_col] + 1e-300)
     
@@ -214,6 +232,7 @@ def plot_volcano(df: pd.DataFrame, filename: str):
     output_path = output_dir / filename.replace(".tsv", "_volcano.png")
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
+    print(f"Saved volcano plot to {output_path}")
 
 
 #GENERATE SUMMARY STATISTICS
@@ -259,12 +278,12 @@ print("\nPROCESSING RESULTS")
 
 for filename, df in results.items():
     print(f"{filename}:")
-    
+
     #Filter results
     df_filtered = filter_results(df)
     
     if len(df_filtered) == 0:
-        print(f"  No significant terms after filtering")
+        print(f"No significant terms after filtering")
         continue
     
     #Get top terms
@@ -278,13 +297,13 @@ for filename, df in results.items():
     df_filtered.to_csv(filtered_output, sep="\t", index=False)
     top_terms.to_csv(top_output, sep="\t", index=False)
     
-    print(f"  Saved filtered results to {filtered_output}")
-    print(f"  Saved top {top_n} terms to {top_output}")
+    print(f"Saved filtered results to {filtered_output}")
+    print(f"Saved top {top_n} terms to {top_output}")
     
     #Generate plots
     plot_top_terms(df, filename, n=top_n)
     plot_volcano(df, filename)
-    print(f"  Saved plots: *_top_terms.png, *_volcano.png")
+    print(f"Saved plots: *_top_terms.png, *_volcano.png")
 
 
 #SUMMARY
