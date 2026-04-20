@@ -22,8 +22,8 @@ sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
 
 #Results directory -> Contains all output TSV files from rGREAT
-results_dir = Path("enrichment_analysis/great_results")
-output_dir = Path("great_summaries")
+results_dir = Path("results/enrichment_results")
+output_dir = Path("enrichment_analysis/great_summaries")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 #Filtering thresholds
@@ -34,8 +34,8 @@ top_n = 15
 
 print("GREAT Enrichment Analysis Results Summary")
 
-#Load all TSV files
-tsv_files = list(results_dir.glob("*.tsv"))
+#Load all TSV files (recursive search through all subfolders)
+tsv_files = list(results_dir.glob("**/*.tsv"))
 if not tsv_files:
     print(f"ERROR: No TSV files found in {results_dir}")
     exit(1)
