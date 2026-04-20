@@ -102,21 +102,39 @@ BiocManager::install("rGREAT")
 
 ## Usage
 
-TALK ABOUT INPUTS + OUTPUTS FOR EACH SECTION
+Each step can be run independently or you can run the full pipeline
 
-### Quick Start
-```bash    
+---
+
+###  Input Requirements
+
+Before running LiverOCRAnalysis, you should have:
+
+- OCR peak files (BED / narrowPeak)
+- TSS annotation files (BED)
+- HAL alignment file (for cross-species mapping)
+
+---
+
+### Example: Run Alignment Only
+
+```bash
+python main.py --step alignment
+```
+### Example: Full LiverOCRAnalysis
+
+```bash
+python main.py --step alignment
+# wait until job finishes
+python main.py --step classification --config ...
+python main.py --step motif
+python main.py --step annotate
 ```
 
 
-### Full Pipeline Execution
-To run the entire pipeline end-to-end, use SLURM:
-
----
-## Demo 
 
 
----
+
 ## Contact
 
 For questions, issues, or contributions, please reach out to:
