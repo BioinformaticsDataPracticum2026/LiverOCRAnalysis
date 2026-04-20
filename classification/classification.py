@@ -70,10 +70,11 @@ def classifyOcrPromotersEnhancers(
         ValueError -> If BED files are empty or invalid.
     """
     
+    #Assign file paths to variables
     ocr_bed_path = Path(ocr_bed_path)
     tss_bed_path = Path(tss_bed_path)
 
-    #Validate input files
+    #Validate input files exist
     if not ocr_bed_path.exists():
         raise FileNotFoundError(f"OCR BED file not found: {ocr_bed_path}")
     if not tss_bed_path.exists():
@@ -116,13 +117,13 @@ def classifyOcrPromotersEnhancers(
 
         logging.info(f"Finished processing {ocr_bed_path}")
 
-
         return {
             "promoters": promoters_path,
             "enhancers": enhancers_path,
             "nearest": nearest_tss_path
         }
     
+    #Error if promoter/enhancer classification fails
     except Exception as e:
         logger.error(f"Error processing {ocr_bed_path}: {e}")
         raise
@@ -152,6 +153,7 @@ def classifyConservedRegions(
         FileNotFoundError -> If input BED files do not exist.
         ValueError -> If BED files are empty or invalid.
     """
+    
     #Assign file paths to variables
     conserved_bed_path = Path(conserved_bed_path)
     tss_bed_path = Path(tss_bed_path)
@@ -227,6 +229,7 @@ def findSharedElements(
         FileNotFoundError -> If input BED files do not exist.
         ValueError -> If BED files are empty or invalid.
     """
+    
     #Assign file paths to variables
     mapped_file_path = Path(mapped_file_path)
     native_file_path = Path(native_file_path)
@@ -300,7 +303,10 @@ def run_classification(config_path: Path) -> None:
         logger.error("PyYAML not found. Install with: pip install pyyaml")
         raise
     
+    #Assign config file path to variable
     config_path = Path(config_path)
+
+    #Validate config file exists
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
     
