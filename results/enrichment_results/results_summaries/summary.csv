@@ -1,0 +1,16 @@
+File,Total Terms,Significant Terms,Mean Fold Enrichment,Median Fold Enrichment,Max Fold Enrichment
+human_shared_from_mouse_GO_Molecular_Function.tsv,4222,577,5.0986280173310226,3.36143,64.33637
+human_shared_from_mouse_GO_Cellular_Component.tsv,1728,228,4.39248580263158,2.8162339999999997,45.61852
+human_shared_from_mouse_GO_Biological_Process.tsv,13159,1280,4.66835392421875,2.991614,90.07091
+human_promoters_GO_Molecular_Function.tsv,4222,579,5.2696297599309165,3.362906,54.03212
+human_promoters_GO_Cellular_Component.tsv,1728,294,4.321591493197279,3.0822789999999998,38.7304
+human_promoters_GO_Biological_Process.tsv,13159,1268,4.476351634858044,2.958444,75.68479
+human_enhancers_GO_Molecular_Function.tsv,4222,725,3.006471540689655,2.633921,27.78827
+human_enhancers_GO_Cellular_Component.tsv,1728,175,2.893722565714286,2.568931,6.735293
+human_enhancers_GO_Biological_Process.tsv,13159,1353,2.8486059903917225,2.515655,11.91459
+human_mapped_from_mouse_promoters_GO_Cellular_Component.tsv,1728,271,5.60014674907749,3.075667,69.6645
+human_mapped_from_mouse_promoters_GO_Molecular_Function.tsv,4222,523,6.95545392543021,3.491287,99.54276
+human_mapped_from_mouse_promoters_GO_Biological_Process.tsv,13159,1273,6.112896835035349,3.14376,137.5482
+human_mapped_from_mouse_enhancers_GO_Cellular_Component.tsv,1728,218,3.5584052844036695,2.7802965000000004,16.90418
+human_mapped_from_mouse_enhancers_GO_Molecular_Function.tsv,4222,700,3.8866212828571434,3.03513,66.53317
+human_mapped_from_mouse_enhancers_GO_Biological_Process.tsv,13159,1860,3.3860768080645163,2.6832205,68.41828
