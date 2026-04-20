@@ -3,7 +3,7 @@
 
 ## Overview
 
-This repository contains a pipeline for analyzing and comparing open chromatin regions (OCRs) in the tissue of two species. It accomplishes the following tasks:
+This repository contains a bioinformatics pipeline for analyzing and comparing open chromatin regions (OCRs) in the tissue of two species. It accomplishes the following tasks:
 - Mapping OCRs between species  
 - Identifying shared and species-specific regions  
 - Classifying regions into promoters and enhancers  
@@ -38,22 +38,31 @@ Other files:
 
 ## Installation
 
-### Dependencies
+### 1. Clone the Repository
+```bash
+git clone https://github.com/BioinformaticsDataPracticum2026/LiverOCRAnalysis.git
+cd LiverOCRAnalysis
+```
+
+### 2.Install Python Dependencies
 
 You can Install LiverOCRAnalysis with:
 
-Option1:
+#### Option A: Using pip
 ```bash
 pip install -r requirements.txt 
 ```
 
-Option2:
+#### Option B: Using conda 
 ```bash
-conda install ...
+conda create -n ocr_analysis python=3.8
+conda activate ocr_analysis
+pip install -r requirements.txt
+conda install -c bioconda bedtools pybedtools
 ```
 
-### External tools required:
-
+### 3. Install External Tools
+The pipeline requires the following external tools. Install them according to your system and environment:
 * [BEDTools](https://bedtools.readthedocs.io/en/latest/) (v2.31)
 * [HALPER](https://github.com/pfenninglab/halLiftover-postprocessing)
 * [HOMER](http://homer.ucsd.edu/homer/motif/) (v5)
