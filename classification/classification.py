@@ -132,74 +132,62 @@ def classifyOcrPromotersEnhancers(
         logger.error(f"Error processing {ocr_bed_path}: {e}")
         raise
 
+
 def identifyOrthologStatus(
-    source_ocr_bed_path: str,
     source_to_target_mapped_path: str,
     target_native_ocr_path: str,
     output_prefix: str
 ) -> Dict[str, str]:
     """
-    Classify source species OCRs by ortholog accessibility status in target species.
+    Classify OCRs by ortholog accessibility status across species.
     
-    Identifies:
-    - Shared: Source OCRs whose orthologs are OPEN in target species
-    - Specific: Source OCRs whose orthologs are CLOSED in target species
+    Identifies conserved vs species-specific open chromatin regions by intersecting
+    mapped orthologous regions with target species native peaks. Logic matches bash
+    script implementation and works entirely in TARGET (mapped) coordinates.
     
     Inputs:
-        source_ocr_bed_path : str -> Path to source species OCR BED file.
-        source_to_target_mapped_path : str -> Path to HALPER mapped regions.
-        target_native_ocr_path : str -> Path to target species native OCR BED file.
+        source_to_target_mapped_path : str -> Path to source→target mapped regions BED file
+            (in TARGET coordinates, e.g., human peaks mapped to mouse coordinates).
+        target_native_ocr_path : str -> Path to target species native OCR BED file (in TARGET coordinates).
         output_prefix : str -> Prefix for output files. Outputs will be saved as:
-            - {output_prefix}_shared.bed (open in both species)
-            - {output_prefix}_specific.bed (open in source, closed in target)
+            - {output_prefix}_shared.bed (mapped regions overlapping target native)
+            - {output_prefix}_specific.bed (mapped regions NOT overlapping target native)
     
     Outputs:
-        Dict[str, str] -> Dictionary with keys 'shared' and 'specific' containing output paths.
+        Dict[str, str] -> Dictionary with keys 'shared' and 'specific' containing paths to output BED files.
+            - 'shared': path to regions that are open in both source (mapped) and target species
+            - 'specific': path to regions that are open in source but closed in target species
+            Both files are in TARGET (mapped) coordinates.
     
     Errors:
         FileNotFoundError -> If input BED files do not exist.
-        ValueError -> If BED files are empty or invalid.
+        ValueError -> If BED files are empty.
+        Exception -> If bedtools operations fail.
     """
     
-    #Assign file paths to variables
-    source_ocr_bed_path = Path(source_ocr_bed_path)
     source_to_target_mapped_path = Path(source_to_target_mapped_path)
     target_native_ocr_path = Path(target_native_ocr_path)
     
-    #Validate input files exist
-    if not source_ocr_bed_path.exists():
-        raise FileNotFoundError(f"Source OCR BED file not found: {source_ocr_bed_path}")
     if not source_to_target_mapped_path.exists():
         raise FileNotFoundError(f"Mapped BED file not found: {source_to_target_mapped_path}")
     if not target_native_ocr_path.exists():
         raise FileNotFoundError(f"Target OCR BED file not found: {target_native_ocr_path}")
     
-    logger.info(f"Identifying ortholog status for {source_ocr_bed_path}")
+    logger.info(f"Identifying ortholog status")
     
     try:
-        #Load BED files
-        source_ocr = BedTool(source_ocr_bed_path)
         mapped = BedTool(source_to_target_mapped_path)
         target_native = BedTool(target_native_ocr_path)
         
-        #Validate non-empty
-        if len(source_ocr) == 0:
-            raise ValueError("Source OCR BED file is empty")
-        if len(mapped) == 0:
-            logger.warning("Mapped BED file is empty")
-        if len(target_native) == 0:
-            logger.warning("Target OCR BED file is empty")
-        
         logger.info(
-            f"Loaded {len(source_ocr)} source OCRs, "
-            f"{len(mapped)} mapped regions, "
+            f"Loaded {len(mapped)} mapped regions, "
             f"{len(target_native)} target OCRs"
         )
         
-        #Find mapped regions that overlap target OCRs (open in both = shared)
+        #Find mapped regions that overlap target native (open in both)
         mapped_open = mapped.intersect(target_native, u=True)
         
-        #Find mapped regions that DON'T overlap target OCRs (closed in target = specific)
+        #Find mapped regions that DON'T overlap target native (closed in target)
         mapped_closed = mapped.intersect(target_native, v=True)
         
         logger.info(
@@ -207,19 +195,15 @@ def identifyOrthologStatus(
             f"{len(mapped_closed)} closed in target"
         )
         
-        #Trace back to original source coordinates
-        source_shared = source_ocr.intersect(mapped_open, u=True)
-        source_specific = source_ocr.intersect(mapped_closed, u=True)
-        
-        #Save outputs
+        #Save outputs in TARGET coordinates
         shared_path = f"{output_prefix}_shared.bed"
         specific_path = f"{output_prefix}_specific.bed"
+ 
+        mapped_open.saveas(shared_path)
+        mapped_closed.saveas(specific_path)
         
-        source_shared.saveas(shared_path)
-        source_specific.saveas(specific_path)
-        
-        logger.info(f"Saved {len(source_shared)} shared OCRs: {shared_path}")
-        logger.info(f"Saved {len(source_specific)} species-specific OCRs: {specific_path}")
+        logger.info(f"Saved {len(mapped_open)} shared OCRs: {shared_path}")
+        logger.info(f"Saved {len(mapped_closed)} species-specific OCRs: {specific_path}")
         
         return {
             "shared": shared_path,
@@ -399,7 +383,7 @@ def run_classification(config_path: Path) -> None:
     
     s1_specific_results = classifyOcrPromotersEnhancers(
         ocr_bed_path=s1_ortholog_status["specific"],
-        tss_bed_path=config.get("species_1_tss_file_cleaned"),
+        tss_bed_path=config.get("species_2_tss_file_cleaned"),
         output_prefix=str(output_dir / f"{species_1_name}_specific"),
         promoter_distance=promoter_distance,
         save_nearest=False
@@ -407,7 +391,7 @@ def run_classification(config_path: Path) -> None:
     
     s2_specific_results = classifyOcrPromotersEnhancers(
         ocr_bed_path=s2_ortholog_status["specific"],
-        tss_bed_path=config.get("species_2_tss_file_cleaned"),
+        tss_bed_path=config.get("species_1_tss_file_cleaned"),
         output_prefix=str(output_dir / f"{species_2_name}_specific"),
         promoter_distance=promoter_distance,
         save_nearest=False

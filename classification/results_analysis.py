@@ -303,7 +303,7 @@ checks_total = 0
 def check(name, condition, details=""):
     global checks_passed, checks_total
     checks_total += 1
-    symbol = "✓" if condition else "✗"
+    symbol = "passed" if condition else "fail"
     status = "PASS" if condition else "FAIL"
     print(f"{symbol} [{status}] {name}")
     if details and not condition:
