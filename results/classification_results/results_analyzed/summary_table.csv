@@ -1,0 +1,6 @@
+Category,Promoters,Enhancers,Total,Promoter %,Enhancer %
+Human All,39216,91381,130597,30.03,69.97
+Mouse All,19811,113745,133556,14.83,85.17
+Shared (Conserved),210,1111,1321,15.9,84.1
+Human Specific,467,888,1355,34.46,65.54
+Mouse Specific,182,959,1141,15.95,84.05

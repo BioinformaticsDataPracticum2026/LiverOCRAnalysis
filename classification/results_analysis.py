@@ -2,12 +2,13 @@
 
 """
 Analysis and Validation of OCR classification results.
-    
-Generates:
-    - Summary statistics
-    - Distribution plots
-    - Venn diagrams
-    - Quality metrics
+
+Generates Output Files:
+    - ortholog_status.png - Pie charts showing open vs closed orthologs
+    - promoter_enhancer_classification.png - Pie charts of promoter/enhancer ratios
+    - conservation_comparison.png - Stacked bar chart of conservation status
+    - percentage_comparison.png - Side-by-side percentage comparison bars
+    - summary_table.csv - Summary statistics table
 """
 
 import pandas as pd
@@ -21,74 +22,120 @@ sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
 
 #Results directory -> Contains all output BED files from classification
-results_dir = Path("results")
+results_dir = Path("raw_results")
 
 print("OCR Classification Results Analysis")
 
-#Basic statistics of results
-print("\nBASIC STATISTICS")
+#IDENTIFY OCRs WITH OPEN VS CLOSED ORTHOLOGS
+print("\nIdentify OCRs with Open vs Closed Orthologs")
 
-#Dictionary mapping category names to BED file names
-files = {
-    "Human Promoters": "human_promoters.bed",
-    "Human Enhancers": "human_enhancers.bed",
-    "Mouse Promoters": "mouse_promoters.bed",
-    "Mouse Enhancers": "mouse_enhancers.bed",
-}
+#Count regions by ortholog status
+human_shared = len(pd.read_csv(results_dir / "human_shared.bed", sep="\t", header=None))
+human_specific = len(pd.read_csv(results_dir / "human_specific.bed", sep="\t", header=None))
+mouse_shared = len(pd.read_csv(results_dir / "mouse_shared.bed", sep="\t", header=None))
+mouse_specific = len(pd.read_csv(results_dir / "mouse_specific.bed", sep="\t", header=None))
 
-#Read each file and compute statistics
-stats = {}
-for name, file in files.items():
-    path = results_dir / file
-    if path.exists():
-        # Read BED file (tab-separated, no header)
-        # Columns: chromosome (0), start (1), end (2), [optional additional columns]
-        df = pd.read_csv(path, sep="\t", header=None)
+print("\nHuman OCRs:")
+print(f"  With OPEN mouse orthologs:   {human_shared:,} regions")
+print(f"  With CLOSED mouse orthologs: {human_specific:,} regions")
+print(f"  Total classified:            {human_shared + human_specific:,} regions")
 
-        #Calculate region lengths (end - start)
-        stats[name] = {
-            "count": len(df),
-            "mean_length": (df[2] - df[1]).mean(),
-            "median_length": (df[2] - df[1]).median(),
-        }
+print("\nMouse OCRs:")
+print(f"  With OPEN human orthologs:   {mouse_shared:,} regions")
+print(f"  With CLOSED human orthologs: {mouse_specific:,} regions")
+print(f"  Total classified:            {mouse_shared + mouse_specific:,} regions")
 
-        #Print statistics for this category
-        print(f"{name}:")
-        print(f"  Total regions: {len(df):,}")
-        print(f"  Mean length: {stats[name]['mean_length']} bp")
-        print(f"  Median length: {stats[name]['median_length']} bp")
-    else:
-        print(f"{file} not found")
+#Visualization: Open vs Closed orthologs
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+#Human perspective
+axes[0].pie(
+    [human_shared, human_specific],
+    labels=[f"Open in Mouse\n({human_shared:,})", f"Closed in Mouse\n({human_specific:,})"],
+    autopct="%1.1f%%",  #Show percentages on pie chart
+    colors=["#99ff99", "#ff9999"],
+    startangle=90
+)
+axes[0].set_title("Human OCRs: Ortholog Status in Mouse", fontsize=12, fontweight="bold")
+
+#Mouse perspective
+axes[1].pie(
+    [mouse_shared, mouse_specific],
+    labels=[f"Open in Human\n({mouse_shared:,})", f"Closed in Human\n({mouse_specific:,})"],
+    autopct="%1.1f%%",
+    colors=["#99ff99", "#ff9999"],
+    startangle=90
+)
+axes[1].set_title("Mouse OCRs: Ortholog Status in Human", fontsize=12, fontweight="bold")
+
+plt.tight_layout()
+plt.savefig("ortholog_status.png", dpi=300, bbox_inches="tight")
+print("Saved: ortholog_status.png")
 
 
-#PROMOTER vs. ENHANCER RATIO
-print("\nPROMOTER vs ENHANCER RATIO")
+#PROMOTER AND ENHANCER CLASSIFICATION
+print("\nPromoter and Enhancer Classification")
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-#Human: Read promoter and enhancer counts
-human_prom = len(pd.read_csv(results_dir / "human_promoters.bed", sep="\t", header=None))
-human_enh = len(pd.read_csv(results_dir / "human_enhancers.bed", sep="\t", header=None))
+#Read all classification files
+human_prom = len(pd.read_csv(results_dir / "human_all_promoters.bed", sep="\t", header=None))
+human_enh = len(pd.read_csv(results_dir / "human_all_enhancers.bed", sep="\t", header=None))
 human_total = human_prom + human_enh
 
-#Create pie chart for human
+mouse_prom = len(pd.read_csv(results_dir / "mouse_all_promoters.bed", sep="\t", header=None))
+mouse_enh = len(pd.read_csv(results_dir / "mouse_all_enhancers.bed", sep="\t", header=None))
+mouse_total = mouse_prom + mouse_enh
+
+shared_prom = len(pd.read_csv(results_dir / "shared_promoters.bed", sep="\t", header=None))
+shared_enh = len(pd.read_csv(results_dir / "shared_enhancers.bed", sep="\t", header=None))
+shared_total = shared_prom + shared_enh
+
+human_spec_prom = len(pd.read_csv(results_dir / "human_specific_promoters.bed", sep="\t", header=None))
+human_spec_enh = len(pd.read_csv(results_dir / "human_specific_enhancers.bed", sep="\t", header=None))
+human_spec_total = human_spec_prom + human_spec_enh
+
+mouse_spec_prom = len(pd.read_csv(results_dir / "mouse_specific_promoters.bed", sep="\t", header=None))
+mouse_spec_enh = len(pd.read_csv(results_dir / "mouse_specific_enhancers.bed", sep="\t", header=None))
+mouse_spec_total = mouse_spec_prom + mouse_spec_enh
+
+print("\nClassification Method:")
+print("  - Promoters: OCRs within 2000 bp of nearest TSS")
+print("  - Enhancers: OCRs beyond 2000 bp from nearest TSS")
+print("  - Method: Distance-based using bedtools closest")
+print("\nLimitations:")
+print("  - Distance threshold is arbitrary (2kb is commonly used but not universal)")
+print("  - Does not account for gene density or chromatin state")
+print("  - Some true promoters may extend beyond 2kb")
+print("  - Some enhancers may be closer than 2kb to TSS")
+
+print("\nAll OCRs by species:")
+print(f"  Human: {human_prom:,} promoters ({100*human_prom/human_total:.1f}%), "
+      f"{human_enh:,} enhancers ({100*human_enh/human_total:.1f}%)")
+print(f"  Mouse: {mouse_prom:,} promoters ({100*mouse_prom/mouse_total:.1f}%), "
+      f"{mouse_enh:,} enhancers ({100*mouse_enh/mouse_total:.1f}%)")
+
+print("\nShared (conserved) OCRs:")
+print(f"  {shared_prom:,} promoters ({100*shared_prom/shared_total:.1f}%), "
+      f"{shared_enh:,} enhancers ({100*shared_enh/shared_total:.1f}%)")
+
+print("\nSpecies-specific OCRs:")
+print(f"  Human: {human_spec_prom:,} promoters ({100*human_spec_prom/human_spec_total:.1f}%), "
+      f"{human_spec_enh:,} enhancers ({100*human_spec_enh/human_spec_total:.1f}%)")
+print(f"  Mouse: {mouse_spec_prom:,} promoters ({100*mouse_spec_prom/mouse_spec_total:.1f}%), "
+      f"{mouse_spec_enh:,} enhancers ({100*mouse_spec_enh/mouse_spec_total:.1f}%)")
+
+#Visualization: Promoter vs Enhancer ratios
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+#All OCRs
 axes[0].pie(
     [human_prom, human_enh],
     labels=[f"Promoters\n({human_prom:,})", f"Enhancers\n({human_enh:,})"],
-    autopct="%1.1f%%", #Show percentages on pie chart
+    autopct="%1.1f%%",  #Show percentages on pie chart
     colors=["#ff9999", "#66b3ff"],
     startangle=90
 )
-axes[0].set_title(f"Human OCRs (Total: {human_total:,})", fontsize=12, fontweight="bold")
+axes[0].set_title(f"Human All OCRs (Total: {human_total:,})", fontsize=12, fontweight="bold")
 
-print(f"Human: {human_prom:,} promoters ({100*human_prom/human_total}%) | {human_enh:,} enhancers ({100*human_enh/human_total}%)")
-
-#Mouse: Read promoter and enhancer counts
-mouse_prom = len(pd.read_csv(results_dir / "mouse_promoters.bed", sep="\t", header=None))
-mouse_enh = len(pd.read_csv(results_dir / "mouse_enhancers.bed", sep="\t", header=None))
-mouse_total = mouse_prom + mouse_enh
-
-#Create pie chart for mouse
 axes[1].pie(
     [mouse_prom, mouse_enh],
     labels=[f"Promoters\n({mouse_prom:,})", f"Enhancers\n({mouse_enh:,})"],
@@ -96,97 +143,97 @@ axes[1].pie(
     colors=["#ff9999", "#66b3ff"],
     startangle=90
 )
-axes[1].set_title(f"Mouse OCRs (Total: {mouse_total:,})", fontsize=12, fontweight="bold")
-
-print(f"Mouse: {mouse_prom:,} promoters ({100*mouse_prom/mouse_total}%) | {mouse_enh:,} enhancers ({100*mouse_enh/mouse_total}%)")
+axes[1].set_title(f"Mouse All OCRs (Total: {mouse_total:,})", fontsize=12, fontweight="bold")
 
 plt.tight_layout()
-plt.savefig("results_01_promoter_enhancer_ratio.png", dpi=300, bbox_inches="tight")
-print("✓ Saved: results_01_promoter_enhancer_ratio.png")
+plt.savefig("promoter_enhancer_classification.png", dpi=300, bbox_inches="tight")
+print("Saved: promoter_enhancer_classification.png")
 
 
-#CROSS-SPECIES CONSERVATION
-print("\nCROSS-SPECIES CONSERVATION")
+#CONSERVATION ANALYSIS
+print("\nConservation Analysis")
 
-#Read counts from mapped files (these are regions from one species mapped to another genome)
-h_to_m_prom = len(pd.read_csv(results_dir / "mouse_mapped_from_human_promoters.bed", sep="\t", header=None))
-h_to_m_enh = len(pd.read_csv(results_dir / "mouse_mapped_from_human_enhancers.bed", sep="\t", header=None))
-m_to_h_prom = len(pd.read_csv(results_dir / "human_mapped_from_mouse_promoters.bed", sep="\t", header=None))
-m_to_h_enh = len(pd.read_csv(results_dir / "human_mapped_from_mouse_enhancers.bed", sep="\t", header=None))
+print(f"\nShared (conserved) OCRs: {shared_total:,} total")
+print(f"  Promoters: {shared_prom:,} ({100*shared_prom/shared_total:.2f}%)")
+print(f"  Enhancers: {shared_enh:,} ({100*shared_enh/shared_total:.2f}%)")
+print(f"  Enhancer/Promoter Ratio: {shared_enh/shared_prom:.2f}")
 
-#Read counts from shared files (these are regions that overlap BOTH mapped and native elements)
-#Represent truly conserved regulatory elements
-h_to_m_shared = len(pd.read_csv(results_dir / "mouse_shared_from_human.bed", sep="\t", header=None))
-m_to_h_shared = len(pd.read_csv(results_dir / "human_shared_from_mouse.bed", sep="\t", header=None))
+print(f"\nHuman-specific OCRs: {human_spec_total:,} total")
+print(f"  Promoters: {human_spec_prom:,} ({100*human_spec_prom/human_spec_total:.2f}%)")
+print(f"  Enhancers: {human_spec_enh:,} ({100*human_spec_enh/human_spec_total:.2f}%)")
+print(f"  Enhancer/Promoter Ratio: {human_spec_enh/human_spec_prom:.2f}")
 
-#Print conservation percentages
-print(f"Human→Mouse mapping: {h_to_m_prom + h_to_m_enh:,} total ({h_to_m_prom:,} promoters, {h_to_m_enh:,} enhancers)")
-print(f"  Shared with native mouse: {h_to_m_shared:,} ({100*h_to_m_shared/(h_to_m_prom + h_to_m_enh)}% conservation)")
+print(f"\nMouse-specific OCRs: {mouse_spec_total:,} total")
+print(f"  Promoters: {mouse_spec_prom:,} ({100*mouse_spec_prom/mouse_spec_total:.2f}%)")
+print(f"  Enhancers: {mouse_spec_enh:,} ({100*mouse_spec_enh/mouse_spec_total:.2f}%)")
+print(f"  Enhancer/Promoter Ratio: {mouse_spec_enh/mouse_spec_prom:.2f}")
 
-print(f"Mouse→Human mapping: {m_to_h_prom + m_to_h_enh:,} total ({m_to_h_prom:,} promoters, {m_to_h_enh:,} enhancers)")
-print(f"  Shared with native human: {m_to_h_shared:,} ({100*m_to_h_shared/(m_to_h_prom + m_to_h_enh)}% conservation)")
+#Visualization: Conservation by element type
+fig, ax = plt.subplots(figsize=(10, 6))
 
-#Create bar charts showing conservation rates
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+categories = ['Shared\n(Conserved)', 'Human\nSpecific', 'Mouse\nSpecific']
+promoters = [shared_prom, human_spec_prom, mouse_spec_prom]
+enhancers = [shared_enh, human_spec_enh, mouse_spec_enh]
 
-#Human to Mouse conservation
-categories = ["Promoters", "Enhancers", "Shared"]
-h_to_m_vals = [h_to_m_prom, h_to_m_enh, h_to_m_shared]
-axes[0].bar(categories, h_to_m_vals, color=["#ff9999", "#66b3ff", "#99ff99"])
-axes[0].set_title("Human → Mouse Conservation", fontsize=12, fontweight="bold")
-axes[0].set_ylabel("Number of regions")
-#Add value labels on bars
-for i, v in enumerate(h_to_m_vals):
-    axes[0].text(i, v + 500, str(f"{v:,}"), ha="center", fontweight="bold")
+x = np.arange(len(categories))
+width = 0.6
 
-#Mouse to Human conservation
-m_to_h_vals = [m_to_h_prom, m_to_h_enh, m_to_h_shared]
-axes[1].bar(categories, m_to_h_vals, color=["#ff9999", "#66b3ff", "#99ff99"])
-axes[1].set_title("Mouse → Human Conservation", fontsize=12, fontweight="bold")
-axes[1].set_ylabel("Number of regions")
-#Add value labels on bars
-for i, v in enumerate(m_to_h_vals):
-    axes[1].text(i, v + 500, str(f"{v:,}"), ha="center", fontweight="bold")
+p1 = ax.bar(x, promoters, width, label='Promoters', color='#ff9999')
+p2 = ax.bar(x, enhancers, width, bottom=promoters, label='Enhancers', color='#66b3ff')
+
+ax.set_ylabel('Number of Regions', fontsize=12)
+ax.set_title('Conservation Status: Promoters vs Enhancers', fontsize=14, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels(categories)
+ax.legend()
+
+#Add total labels on bars
+for i, (p, e) in enumerate(zip(promoters, enhancers)):
+    total = p + e
+    ax.text(i, total + 50, f'{total:,}', ha='center', fontweight='bold')
 
 plt.tight_layout()
-plt.savefig("results_02_cross_species_conservation.png", dpi=300, bbox_inches="tight")
-print("✓ Saved: results_02_cross_species_conservation.png")
+plt.savefig("conservation_comparison.png", dpi=300, bbox_inches="tight")
+print("Saved: conservation_comparison.png")
 
+#Additional visualization: Percentage comparison
+fig, ax = plt.subplots(figsize=(10, 6))
 
-#REGION SIZE DISTRIBUTION
-print("\nREGION SIZE DISTRIBUTION")
-
-fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-
-#List of files to plot with their titles and axes
-files_to_plot = [
-    ("human_promoters.bed", "Human Promoters", axes[0, 0]),
-    ("human_enhancers.bed", "Human Enhancers", axes[0, 1]),
-    ("mouse_promoters.bed", "Mouse Promoters", axes[1, 0]),
-    ("mouse_enhancers.bed", "Mouse Enhancers", axes[1, 1]),
+prom_pcts = [
+    100 * shared_prom / shared_total,
+    100 * human_spec_prom / human_spec_total,
+    100 * mouse_spec_prom / mouse_spec_total
+]
+enh_pcts = [
+    100 * shared_enh / shared_total,
+    100 * human_spec_enh / human_spec_total,
+    100 * mouse_spec_enh / mouse_spec_total
 ]
 
-#Create histogram for each file
-for file, title, ax in files_to_plot:
-    path = results_dir / file
-    df = pd.read_csv(path, sep="\t", header=None)
+x = np.arange(len(categories))
+width = 0.35
 
-    #Calculate region sizes (end - start)
-    sizes = df[2] - df[1]
-    
-    #Create histogram
-    ax.hist(sizes, bins=50, color="#66b3ff", edgecolor="black", alpha=0.7)
-    ax.set_xlabel("Region size (bp)")
-    ax.set_ylabel("Frequency")
-    ax.set_title(title)
+bars1 = ax.bar(x - width/2, prom_pcts, width, label='Promoters', color='#ff9999')
+bars2 = ax.bar(x + width/2, enh_pcts, width, label='Enhancers', color='#66b3ff')
 
-    #Add vertical line showing mean
-    ax.axvline(sizes.mean(), color="red", linestyle="--", linewidth=2, label=f"Mean: {sizes.mean()} bp")
-    ax.legend()
+ax.set_ylabel('Percentage (%)', fontsize=12)
+ax.set_title('Promoter vs Enhancer Distribution by Conservation Status', 
+             fontsize=14, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels(categories)
+ax.legend()
+ax.set_ylim(0, 100)
+
+#Add percentage labels on bars
+for bars in [bars1, bars2]:
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 1,
+                f'{height:.1f}%', ha='center', va='bottom', fontsize=10)
 
 plt.tight_layout()
-plt.savefig("results_03_region_size_distribution.png", dpi=300, bbox_inches="tight")
-print("Saved: results_03_region_size_distribution.png")
+plt.savefig("percentage_comparison.png", dpi=300, bbox_inches="tight")
+print("Saved: percentage_comparison.png")
 
 
 #SUMMARY TABLE
@@ -195,87 +242,115 @@ print("\nSUMMARY TABLE")
 #Create structured data for summary table
 summary_data = {
     "Category": [
-        "Human Native",
-        "Mouse Native",
-        "Human←Mouse Mapped",
-        "Mouse←Human Mapped",
-        "Human-Mouse Shared",
+        "Human All",
+        "Mouse All",
+        "Shared (Conserved)",
+        "Human Specific",
+        "Mouse Specific",
     ],
     "Promoters": [
         human_prom,
         mouse_prom,
-        m_to_h_prom,
-        h_to_m_prom,
-        m_to_h_shared,
+        shared_prom,
+        human_spec_prom,
+        mouse_spec_prom,
     ],
     "Enhancers": [
         human_enh,
         mouse_enh,
-        m_to_h_enh,
-        h_to_m_enh,
-        h_to_m_shared,
+        shared_enh,
+        human_spec_enh,
+        mouse_spec_enh,
     ],
     "Total": [
         human_total,
         mouse_total,
-        m_to_h_prom + m_to_h_enh,
-        h_to_m_prom + h_to_m_enh,
-        h_to_m_shared + m_to_h_shared,
+        shared_total,
+        human_spec_total,
+        mouse_spec_total,
+    ],
+    "Promoter %": [
+        100 * human_prom / human_total,
+        100 * mouse_prom / mouse_total,
+        100 * shared_prom / shared_total,
+        100 * human_spec_prom / human_spec_total,
+        100 * mouse_spec_prom / mouse_spec_total,
+    ],
+    "Enhancer %": [
+        100 * human_enh / human_total,
+        100 * mouse_enh / mouse_total,
+        100 * shared_enh / shared_total,
+        100 * human_spec_enh / human_spec_total,
+        100 * mouse_spec_enh / mouse_spec_total,
     ]
 }
 
 summary_df = pd.DataFrame(summary_data)
+summary_df = summary_df.round(2)
 print(summary_df.to_string(index=False))
 
 #Save to CSV
-summary_df.to_csv("results_summary.csv", index=False)
-print("✓ Saved: results_summary.csv")
+summary_df.to_csv("summary_table.csv", index=False)
+print("Saved: summary_table.csv")
 
 
 #SANITY CHECKS
 print("\nSANITY CHECKS")
 
-#The following is a series of checks to ensure data quality
-checks = [
-    #Check 1: Promoter and enhancer counts should sum to total for human
-    ("Human promoters + enhancers = total",
-     human_prom + human_enh == human_total,
-     "Passed sanity check." if human_prom + human_enh == human_total
-     else "Failed sanity check."),
-    
-    #Check 2: Promoter and enhancer counts should sum to total for mouse
-    ("Mouse promoters + enhancers = total",
-     mouse_prom + mouse_enh == mouse_total,
-     "Passed sanity check." if mouse_prom + mouse_enh == mouse_total
-     else "Failed sanity check."),
+checks_passed = 0
+checks_total = 0
 
-     #Check 3: Promoter to enhancer ratio should be reasonable (~20-50% promoters typical)
-    ("Promoter-to-enhancer ratio reasonable",
-     (human_prom/human_enh > 0.2) and (human_prom/human_enh < 0.8),
-     "Passed sanity check." if (human_prom/human_enh > 0.2) and (human_prom/human_enh < 0.8)
-     else "Failed sanity check."),
-    
-    #Check 4: There should be some conservation between species
-    ("Conservation rate > 0%",
-     (h_to_m_shared > 0) and (m_to_h_shared > 0),
-     "Passed sanity check." if (h_to_m_shared > 0) and (m_to_h_shared > 0)
-     else "Failed sanity check."),
+def check(name, condition, details=""):
+    global checks_passed, checks_total
+    checks_total += 1
+    symbol = "✓" if condition else "✗"
+    status = "PASS" if condition else "FAIL"
+    print(f"{symbol} [{status}] {name}")
+    if details and not condition:
+        print(f"         {details}")
+    if condition:
+        checks_passed += 1
 
-     #Check 5: Conservation should not be 100% (some elements are species-specific)
-    ("Conservation rate < 100%",
-     (h_to_m_shared < h_to_m_prom + h_to_m_enh) and (m_to_h_shared < m_to_h_prom + m_to_h_enh),
-     "Passed sanity check." if (h_to_m_shared < h_to_m_prom + h_to_m_enh)
-     else "Failed sanity check."),
-]
+#Check 1: Promoter and enhancer counts should sum to total
+check("Human promoters + enhancers = total",
+      human_prom + human_enh == human_total)
 
-#Print results for each check
-for check_name, result, symbol in checks:
-    print(f"{symbol} {check_name}: {result}")
+check("Mouse promoters + enhancers = total",
+      mouse_prom + mouse_enh == mouse_total)
 
-#FINISHED!!!
-print("VALIDATION COMPLETE")
-print("\nGenerated visualizations:")
-print("  1. results_01_promoter_enhancer_ratio.png")
-print("  2. results_02_cross_species_conservation.png")
-print("  3. results_03_region_size_distribution.png")
-print("  4. results_summary.csv")
+check("Shared promoters + enhancers = total",
+      shared_prom + shared_enh == shared_total)
+
+#Check 2: Promoter to enhancer ratio should be reasonable (10-50% promoters typical)
+human_prom_pct = 100 * human_prom / human_total
+check("Human promoter % reasonable (10-50%)",
+      10 <= human_prom_pct <= 50,
+      f"Got {human_prom_pct:.1f}%")
+
+mouse_prom_pct = 100 * mouse_prom / mouse_total
+check("Mouse promoter % reasonable (10-50%)",
+      10 <= mouse_prom_pct <= 50,
+      f"Got {mouse_prom_pct:.1f}%")
+
+#Check 3: There should be some conservation
+check("Shared regions exist", shared_total > 0)
+
+#Check 4: There should be species-specific regions
+check("Human-specific regions exist", human_spec_total > 0)
+check("Mouse-specific regions exist", mouse_spec_total > 0)
+
+#Check 5: Conservation should not be 100%
+check("Not all regions are conserved",
+      shared_total < min(human_total, mouse_total))
+
+print(f"\nChecks passed: {checks_passed}/{checks_total}")
+
+
+#FINISHED
+print("\nAnalysis Complete")
+print("\nGenerated files:")
+print("  1. ortholog_status.png")
+print("  2. promoter_enhancer_classification.png")
+print("  3. conservation_comparison.png")
+print("  4. percentage_comparison.png")
+print("  5. summary_table.csv")

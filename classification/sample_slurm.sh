@@ -15,4 +15,4 @@ module load anaconda3
 conda activate my_bio_env
 
 #Run the classification pipeline
-python3 classification.py --config config.processed.yaml
+python3 classification.py --config config.yaml
