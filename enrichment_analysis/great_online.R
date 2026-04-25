@@ -1,19 +1,19 @@
 #!/usr/bin/env Rscript
 
 suppressPackageStartupMessages({
-  library(GenomicRanges)
   library(rGREAT)
+  library(GenomicRanges)
 })
 
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) != 3) {
-  stop("Usage: Rscript enrichment_analysis/great_online.R <bed_file> <genome> <output_dir>")
+  stop("Usage: Rscript enrichment_analysis/great_online.R <bed_file> <genome> <outdir>")
 }
 
 bed_file <- args[1]
 genome <- args[2]
-output_dir <- args[3]
+outdir <- args[3]
 
 if (!file.exists(bed_file)) {
   stop(paste("BED file not found:", bed_file))
@@ -23,11 +23,10 @@ if (!(genome %in% c("hg38", "mm10"))) {
   stop("Genome must be either hg38 or mm10")
 }
 
-dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
-run_name <- tools::file_path_sans_ext(basename(bed_file))
-
-bed_df <- read.table(
+# read BED file
+d <- read.table(
   bed_file,
   sep = "\t",
   header = FALSE,
@@ -36,80 +35,90 @@ bed_df <- read.table(
   stringsAsFactors = FALSE
 )
 
-if (ncol(bed_df) < 3) {
-  stop("BED file must have at least 3 columns: chrom, start, end")
+if (ncol(d) < 3) {
+  stop("BED file must have at least 3 columns: chr, start, end")
 }
 
-bed_df <- bed_df[, 1:3]
-colnames(bed_df) <- c("chrom", "start", "end")
+d <- d[, 1:3]
+colnames(d) <- c("chr", "start", "end")
 
-bed_df$start <- as.integer(bed_df$start)
-bed_df$end <- as.integer(bed_df$end)
+d$start <- as.integer(d$start)
+d$end <- as.integer(d$end)
 
-if (any(is.na(bed_df$start)) || any(is.na(bed_df$end))) {
+if (any(is.na(d$start)) || any(is.na(d$end))) {
   stop("BED start/end columns contain non-numeric values")
 }
 
-invalid_rows <- bed_df$end <= bed_df$start
-
-if (any(invalid_rows)) {
-  warning(paste("Removing", sum(invalid_rows), "invalid rows where end <= start"))
-  bed_df <- bed_df[!invalid_rows, , drop = FALSE]
+# chromosome sizes used by GREAT
+if (genome == "hg38") {
+  chr_sizes <- c(
+    chr1=248956422, chr2=242193529, chr3=198295559, chr4=190214555,
+    chr5=181538259, chr6=170805979, chr7=159345973, chr8=145138636,
+    chr9=138394717, chr10=133797422, chr11=135086622, chr12=133275309,
+    chr13=114364328, chr14=107043718, chr15=101991189, chr16=90338345,
+    chr17=83257441, chr18=80373285, chr19=58617616, chr20=64444167,
+    chr21=46709983, chr22=50818468, chrX=156040895, chrY=57227415
+  )
+} else {
+  chr_sizes <- c(
+    chr1=195471971, chr2=182113224, chr3=160039680, chr4=156508116,
+    chr5=151834684, chr6=149736546, chr7=145441459, chr8=129401213,
+    chr9=124595110, chr10=130694993, chr11=122082543, chr12=120129022,
+    chr13=120421639, chr14=124902244, chr15=104043685, chr16=98207768,
+    chr17=94987271, chr18=90702639, chr19=61431566, chrX=171031299,
+    chrY=91744698
+  )
 }
 
-if (nrow(bed_df) == 0) {
-  stop("No valid BED intervals remain after filtering")
+before_n <- nrow(d)
+
+d <- d[d$chr %in% names(chr_sizes), ]
+d <- d[d$start >= 0, ]
+d <- d[d$end > d$start, ]
+d <- d[d$end <= chr_sizes[d$chr], ]
+
+after_n <- nrow(d)
+
+cat("Input BED:", bed_file, "\n")
+cat("Genome:", genome, "\n")
+cat("Original regions:", before_n, "\n")
+cat("Filtered invalid regions:", before_n - after_n, "\n")
+cat("Remaining regions:", after_n, "\n")
+
+if (after_n == 0) {
+  stop("No valid regions remain after filtering.")
 }
 
 # BED is 0-based half-open; GRanges is 1-based closed
-regions <- GRanges(
-  seqnames = bed_df$chrom,
-  ranges = IRanges(
-    start = bed_df$start + 1,
-    end = bed_df$end
-  )
+gr <- GRanges(
+  seqnames = d$chr,
+  ranges = IRanges(start = d$start + 1, end = d$end)
 )
 
-message("Submitting GREAT job for: ", run_name)
-message("Genome: ", genome)
-message("Number of regions: ", length(regions))
-
-job <- submitGreatJob(
-  regions,
-  genome = genome
-)
+# run online GREAT
+job <- submitGreatJob(gr, genome = genome)
 
 tables <- getEnrichmentTables(job)
 
-if (length(tables) == 0) {
-  stop("No enrichment tables returned by GREAT")
+if (!("GO Biological Process" %in% names(tables))) {
+  stop("GO Biological Process table was not returned by GREAT.")
 }
 
-saveRDS(job, file.path(output_dir, paste0(run_name, ".great_job.rds")))
-
-for (table_name in names(tables)) {
-  safe_name <- gsub("[^A-Za-z0-9]+", "_", table_name)
-  output_file <- file.path(output_dir, paste0(run_name, ".", safe_name, ".csv"))
-
-  write.csv(
-    tables[[table_name]],
-    output_file,
-    row.names = FALSE
-  )
-}
-
-metadata_file <- file.path(output_dir, paste0(run_name, ".metadata.txt"))
+write.csv(
+  tables[["GO Biological Process"]],
+  file.path(outdir, "gobp.csv"),
+  row.names = FALSE
+)
 
 writeLines(
   c(
     paste("bed_file:", bed_file),
     paste("genome:", genome),
-    paste("run_name:", run_name),
-    paste("n_regions:", length(regions)),
-    paste("tables:", paste(names(tables), collapse = ", "))
+    paste("original_regions:", before_n),
+    paste("filtered_invalid_regions:", before_n - after_n),
+    paste("remaining_regions:", after_n)
   ),
-  con = metadata_file
+  file.path(outdir, "metadata.txt")
 )
 
-message("Finished GREAT analysis for: ", run_name)
-message("Results written to: ", output_dir)
+cat("DONE:", bed_file, "\n")

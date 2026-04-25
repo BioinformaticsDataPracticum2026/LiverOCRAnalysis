@@ -1,81 +1,40 @@
-#!/usr/bin/env python3
-
-from pathlib import Path
 import pandas as pd
+from pathlib import Path
 
-from enrichment_analysis.config import GREAT_OUTPUT_DIR, SUMMARY_OUTPUT_DIR
-
-
-def find_go_file(folder: Path) -> Path | None:
-    for f in folder.glob("*.csv"):
-        if "GO_Biological_Process" in f.name:
-            return f
-    return None
-
-
-def load_and_filter_go(file_path: Path, label: str) -> pd.DataFrame:
-    df = pd.read_csv(file_path)
-
-    # find p-value column automatically
-    pval_col = None
-    for col in df.columns:
-        if "binom" in col.lower():
-            pval_col = col
-            break
-
-    if pval_col is None:
-        print(f"[WARN] No binomial p-value column found in {file_path}")
-        return pd.DataFrame()
-
-    df[pval_col] = pd.to_numeric(df[pval_col], errors="coerce")
-
-    df = df[df[pval_col] < 0.05].copy()
-
-    if df.empty:
-        return df
-
-    df["dataset"] = label
-
-    # keep only useful columns
-    keep_cols = ["dataset", "ID", "Description", pval_col]
-    keep_cols = [c for c in keep_cols if c in df.columns]
-
-    return df[keep_cols]
+GREAT_DIR = Path("results/enrichment/great")
+OUTPUT = Path("results/enrichment/summary/great_summary.tsv")
 
 
 def main():
-    SUMMARY_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    all_dfs = []
 
-    all_results = []
-
-    for folder in sorted(GREAT_OUTPUT_DIR.iterdir()):
-        if not folder.is_dir():
+    for d in GREAT_DIR.iterdir():
+        if not d.is_dir():
             continue
 
-        label = folder.name
-        go_file = find_go_file(folder)
-
-        if go_file is None:
-            print(f"[WARN] No GO BP file found for {label}")
+        file = d / "gobp.csv"
+        if not file.exists():
             continue
 
-        print(f"[LOAD] {label}")
+        print(f"[PROCESS] {d.name}")
 
-        df = load_and_filter_go(go_file, label)
+        df = pd.read_csv(file)
 
-        if not df.empty:
-            all_results.append(df)
+        # use adjusted p-value
+        df = df.sort_values("Binom_Adjp_BH").head(10)
 
-    if not all_results:
-        print("[WARN] No enrichment results found.")
-        return
+        df["dataset"] = d.name
 
-    merged = pd.concat(all_results, ignore_index=True)
+        all_dfs.append(
+            df[["dataset", "name", "Binom_Adjp_BH", "Binom_Fold_Enrichment"]]
+        )
 
-    output_file = SUMMARY_OUTPUT_DIR / "great_summary.tsv"
-    merged.to_csv(output_file, sep="\t", index=False)
+    final = pd.concat(all_dfs)
 
-    print(f"\n[OK] Summary written to: {output_file}")
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    final.to_csv(OUTPUT, sep="\t", index=False)
+
+    print(f"[DONE] saved → {OUTPUT}")
 
 
 if __name__ == "__main__":
