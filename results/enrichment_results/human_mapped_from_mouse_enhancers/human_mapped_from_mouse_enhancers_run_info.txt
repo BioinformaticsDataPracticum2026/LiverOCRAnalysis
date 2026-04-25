@@ -1,3 +1,0 @@
-bed_file: results/classification_results/raw_results/human_mapped_from_mouse_enhancers.bed
-species: hg38
-table_count: 3

@@ -1,3 +1,0 @@
-bed_file: results/classification_results/raw_results/human_shared_from_mouse.bed
-species: hg38
-table_count: 3
