@@ -1,22 +1,3 @@
-#!/usr/bin/env python3
-
-"""
-Simple CLI for the LiverOCRAnalysis pipeline.
-
-This file is meant to be the main entry point for running the project modules.
-It does not re-implement each analysis step. Instead, it calls the existing
-module scripts in a consistent order.
-
-Example usage:
-    python main.py alignment
-    python main.py preprocess --config classification/sample_config.yaml
-    python main.py classification --config classification/sample_config.yaml
-    python main.py motif-prepare --config motif_config.yaml
-    python main.py motif-run --genome /path/to/hg38.fa
-    python main.py enrichment
-    python main.py full --config classification/sample_config.yaml
-"""
-
 from pathlib import Path
 import argparse
 import subprocess
