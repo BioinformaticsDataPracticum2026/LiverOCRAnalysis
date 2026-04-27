@@ -25,7 +25,7 @@ The repository is organized based on the main analysis steps:
 
 Other files:
 - `main.py`
-- `bedtools_preprocessing.py`
+- `pipeline.py`
 - `requirements.txt`
 
 ---
@@ -98,119 +98,149 @@ BiocManager::install("rGREAT")
 
 ## Usage
 
-Each step can be run independently or you can run the full pipeline
+Each step of the pipeline can be run independently.
 
-###  Input Requirements
+### Input Requirements
 
-Before running LiverOCRAnalysis, you should have:
+Before running **LiverOCRAnalysis**, you should have:
 
 - OCR peak files (BED / narrowPeak)
 - TSS annotation files (BED)
-- HAL alignment file (for cross-species mapping)
+- HALPER mapping outputs (from the alignment step)
 
 ---
 
-### To run individual modules
+## Run Pipeline Steps
 
-```bash
-#Alignment
-python main.py alignment \
-  --human-peaks data/human_peaks.narrowPeak \
-  --mouse-peaks data/mouse_peaks.narrowPeak \
-  --hal-file data/10plusway.hal
+### 1. Alignment (HALPER)
 
-#Classification
-python main.py classification \
-  --config classification/sample_config.yaml
+    python main.py alignment
 
-#Motif Analysis
-python main.py motif
-
-#Annotate peaks
-python main.py annotate \
-  --bed-dir results \
-  --outdir results/annotated
-
-#GREAT analysis
-python main.py great \
-  --bed-dir results \
-  --outdir results/great \
-  --species hg38
-  ```
+Runs cross-species mapping using HALPER (via SLURM by default).
 
 ---
 
-### To Run Full LiverOCRAnalysis
+### 2. Preprocess (BED cleaning)
 
-```bash
-python main.py full \
-  --human-peaks data/human_peaks.narrowPeak \
-  --mouse-peaks data/mouse_peaks.narrowPeak \
-  --hal-file data/10plusway.hal \
-  --config classification/sample_config.yaml
-```
+    python main.py preprocess --config classification/sample_config.yaml
+
+- unzips files if needed  
+- converts to BED3  
+- sorts files  
+- creates `config.processed.yaml`
+
+---
+
+### 3. Classification (Promoter / Enhancer)
+
+    python main.py classification --config classification/sample_config.yaml
+
+- automatically runs preprocessing first  
+- classifies OCRs into promoters and enhancers  
+- identifies shared vs species-specific regions  
+
+---
+
+### 4. Motif Analysis (HOMER)
+
+    python main.py motif --genome hg38
+
+Optional:
+
+    --bed-dir results/classification_results/raw_results
+    --outdir results/findmotifs_results
+
+---
+
+### 5. Enrichment Analysis (GREAT)
+
+    python main.py enrichment
+
+Runs:
+- GREAT (rGREAT)
+- summary table generation
+- visualization (barplots + heatmap)
+
+---
+
+## Optional Steps
+
+### Classification Summary
+
+    python main.py classification-summary
+
+---
+
+### Motif Input Preparation
+
+    python main.py motif-prepare --config motif_config.yaml
+
+---
+
+## Notes
+
+- Each step can be run independently  
+- Outputs are saved in the `results/` directory  
+- For cluster usage, use a SLURM script (see example in repo)
+
+### Running the Full Pipeline
+
+To run all steps in order, use the provided script:
+
+    sbatch full_pipeline.sh
+
+This script runs:
+
+- alignment (HALPER)
+- classification (includes preprocessing)
+- motif analysis (HOMER)
+- enrichment analysis (GREAT)
 
 ---
 
 ### Flags Description
 
-| Module | Flag | Description |
-|-------|------|------------|
-| **Alignment** | `--human-peaks` | Human OCR peak file (BED / narrowPeak) |
-|  | `--mouse-peaks` | Mouse OCR peak file |
-|  | `--hal-file` | HAL alignment file for cross-species mapping |
-|  | `--outdir` | Output directory (default: `results/alignment`) |
-|  | `--min-len` | Minimum length for mapped regions |
-|  | `--protect-dist` | Distance around peak summit to preserve |
-|  | `--max-frac` | Maximum allowed size change after mapping |
-|  | `--preserve` | Extra peak columns to keep |
-|  | `--hal-liftover-path` | Path to `halLiftover` binary |
-|  | `--keep-chr-prefix` | Filter chromosomes by prefix |
-| **Classification** | `--config` | YAML file defining OCRs, TSS, and mappings |
-|  | `--log-level` | Logging verbosity (INFO, DEBUG, etc.) |
-|  | `--script` | Path to classification script |
-| **Motif** | `--script` | Motif analysis script |
-| **Annotate** | `--bed-dir` | Directory containing BED files |
-|  | `--outdir` | Output directory (default: `results/annotated`) |
-|  | `--genome` | Genome build or FASTA (default: hg38) |
-|  | `--homer-bin` | Path to `annotatePeaks.pl` |
-|  | `--gtf` / `--gff3` | Custom annotation file |
-|  | `--beds` | Specific BED files to process |
-| **GREAT** | `--bed-dir` | Directory containing BED files |
-|  | `--outdir` | Output directory (default: `results/great`) |
-|  | `--species` | Genome assembly (default: hg38) |
-|  | `--beds` | Specific BED files to analyze |
-|  | `--rscript-bin` | Path to Rscript executable |
-|  | `--script` | GREAT batch script |
-|  | `--r-script` | GREAT R script |
-| **Full** | `--human-peaks`, `--mouse-peaks`, `--hal-file` | Alignment inputs |
-|  | `--config` | Classification config |
+| Command | Flag | Description |
+|--------|------|------------|
+| **alignment** | `--local` | local option if not with SLUTM |
+| **preprocess** | `--config` | Path to YAML config file |
+|  | `--log-level` | Logging level (INFO, DEBUG, etc.) |
+| **classification** | `--config` | Path to YAML config file |
+|  | `--skip-preprocess` | Skip preprocessing and use existing processed config |
+|  | `--log-level` | Logging level |
+| **motif** | `--genome` | Genome name or FASTA file |
+|  | `--bed-dir` | Directory containing BED files |
+|  | `--outdir` | Output directory |
+|  | `--beds` | Specific BED files to run |
+|  | `--size` | HOMER region size |
+|  | `--lengths` | Motif lengths (e.g., 8,10,12) |
+|  | `--threads` | Number of threads |
+|  | `--homer-bin` | Path to `findMotifsGenome.pl` |
+|  | `--mask` | Use repeat masking |
+|  | `--bg` | Background BED file |
+| **motif-prepare** | `--config` | Motif config file |
+|  | `--log-level` | Logging level |
 
 ---
 
 ### Outputs
 
-| Module | Output File / Artifact | Location | Format | Description |
-|--------|----------------------|----------|--------|-------------|
-| **Alignment** | `*.HALPER.narrowPeak.gz` | `results/alignment_results/human_to_mouse/`<br>`results/alignment_results/mouse_to_human/` | gzipped narrowPeak | Cross-species mapped OCR peaks (main HALPER output) |
-| **Alignment** | `*.halLiftover.tFile.bed.gz` | Same as above | gzipped BED | Intermediate file of target-genome regions before HALPER filtering |
-| **Alignment** | `*.halLiftover.sFile.bed.gz` | Same as above | gzipped BED | Intermediate file of peak summit positions before HALPER filtering |
-| **Classification** | `{species}_all_promoters.bed`<br>`{species}_all_enhancers.bed` | `results/classification_results/raw_results/` | BED | All OCRs per species split into promoters (≤2000 bp from TSS) and enhancers (>2000 bp) |
-| **Classification** | `shared_promoters.bed`<br>`shared_enhancers.bed` | `results/classification_results/raw_results/` | BED | OCRs with orthologs open in both species, classified as promoters or enhancers |
-| **Classification** | `{species}_specific.bed`<br>`{species}_specific_promoters.bed`<br>`{species}_specific_enhancers.bed` | `results/classification_results/raw_results/` | BED | OCRs open in one species but not the other, with promoter/enhancer sub-classifications |
-| **Classification** | `summary_table.csv` | `results/classification_results/results_analyzed/` | CSV | Per-category counts and percentages for all classified OCR sets |
-| **Classification** | `promoter_enhancer_classification.png`<br>`ortholog_status.png`<br>`conservation_comparison.png`<br>`percentage_comparison.png` | `results/classification_results/results_analyzed/` | PNG | Bar charts and comparison plots of OCR classification and conservation |
-| **Enrichment Analysis** | `gobp.csv` | `results/enrichment/great/{dataset}/` | CSV | GO Biological Process enrichment results (p-values, fold enrichment) per OCR category |
-| **Enrichment Analysis** | `metadata.txt` | `results/enrichment/great/{dataset}/` | TXT | Region counts and filtering details for the GREAT submission |
-| **Enrichment Analysis** | `great_summary.tsv` | `results/enrichment/summary/` | TSV | Top 10 enriched GO BP terms per dataset consolidated across all OCR categories |
-| **Enrichment Analysis** | `barplot_{dataset}.png` | `results/enrichment/plots/` | PNG | Bar plots of top enriched GO BP terms per OCR category (one per dataset) |
-| **Enrichment Analysis** | `comparison_heatmap.png` | `results/enrichment/plots/` | PNG | Heatmap comparing GO BP enrichment scores across all OCR categories |
-| **Motif Analysis** | `homerResults.html` | `results/findmotifs_results/{region_type}/` | HTML | Interactive report of de novo motif discovery results |
-| **Motif Analysis** | `knownResults.html`<br>`knownResults.txt` | `results/findmotifs_results/{region_type}/` | HTML / TSV | Known transcription factor motif enrichment report with statistics |
-| **Motif Analysis** | `homerMotifs.all.motifs`<br>`homerMotifs.motifs8`<br>`homerMotifs.motifs10`<br>`homerMotifs.motifs12` | `results/findmotifs_results/{region_type}/` | HOMER motif | De novo motif position weight matrices at 8, 10, and 12 bp lengths |
-| **Motif Analysis** | `known{N}.motif`<br>`known{N}.logo.svg` | `results/findmotifs_results/{region_type}/knownResults/` | PWM / SVG | Individual known motif PWM files and sequence logo images |
-
----
+| Module | Output | Location | Description |
+|--------|--------|----------|------------|
+| **Alignment** | `*.HALPER.narrowPeak.gz` | `results/alignment_results/` | Cross-species mapped OCR peaks |
+| **Alignment** | `*.halLiftover.*.bed.gz` | `results/alignment_results/` | Intermediate liftover files |
+| **Classification** | `{species}_all_promoters.bed`<br>`{species}_all_enhancers.bed` | `results/classification_results/` | All OCRs split into promoters and enhancers |
+| **Classification** | `{species}_shared.bed`<br>`{species}_specific.bed` | `results/classification_results/` | Shared vs species-specific OCRs |
+| **Classification** | `shared_promoters.bed`<br>`shared_enhancers.bed` | `results/classification_results/` | Shared OCRs classified by type |
+| **Classification** | `{species}_specific_promoters.bed`<br>`{species}_specific_enhancers.bed` | `results/classification_results/` | Species-specific OCRs classified by type |
+| **Classification** | plots (`.png`) | `results/classification_results/` | Visualization of OCR classification |
+| **Motif Analysis** | `homerResults.html` | `results/findmotifs_results/{region_type}/` | De novo motif discovery results |
+| **Motif Analysis** | `knownResults.html` | `results/findmotifs_results/{region_type}/` | Known TF motif enrichment |
+| **Motif Analysis** | `homerMotifs.*` | `results/findmotifs_results/{region_type}/` | Motif PWMs |
+| **Enrichment Analysis** | `gobp.csv` | `results/enrichment/great/{dataset}/` | GO Biological Process enrichment results |
+| **Enrichment Analysis** | `metadata.txt` | `results/enrichment/great/{dataset}/` | GREAT run metadata |
+| **Enrichment Analysis** | `great_summary.tsv` | `results/enrichment/summary/` | Top enriched terms across datasets |
+| **Enrichment Analysis** | plots (`.png`) | `results/enrichment/plots/` | Barplots and heatmap of enrichment results |
 
 ## Citation
 To cite this repository, please copy the following:
