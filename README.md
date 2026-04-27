@@ -225,22 +225,22 @@ This script runs:
 
 ### Outputs
 
-| Module | Output | Location | Description |
-|--------|--------|----------|------------|
-| **Alignment** | `*.HALPER.narrowPeak.gz` | `results/alignment_results/` | Cross-species mapped OCR peaks |
-| **Alignment** | `*.halLiftover.*.bed.gz` | `results/alignment_results/` | Intermediate liftover files |
-| **Classification** | `{species}_all_promoters.bed`<br>`{species}_all_enhancers.bed` | `results/classification_results/` | All OCRs split into promoters and enhancers |
-| **Classification** | `{species}_shared.bed`<br>`{species}_specific.bed` | `results/classification_results/` | Shared vs species-specific OCRs |
-| **Classification** | `shared_promoters.bed`<br>`shared_enhancers.bed` | `results/classification_results/` | Shared OCRs classified by type |
-| **Classification** | `{species}_specific_promoters.bed`<br>`{species}_specific_enhancers.bed` | `results/classification_results/` | Species-specific OCRs classified by type |
-| **Classification** | plots (`.png`) | `results/classification_results/` | Visualization of OCR classification |
-| **Motif Analysis** | `homerResults.html` | `results/findmotifs_results/{region_type}/` | De novo motif discovery results |
-| **Motif Analysis** | `knownResults.html` | `results/findmotifs_results/{region_type}/` | Known TF motif enrichment |
-| **Motif Analysis** | `homerMotifs.*` | `results/findmotifs_results/{region_type}/` | Motif PWMs |
-| **Enrichment Analysis** | `gobp.csv` | `results/enrichment/great/{dataset}/` | GO Biological Process enrichment results |
-| **Enrichment Analysis** | `metadata.txt` | `results/enrichment/great/{dataset}/` | GREAT run metadata |
-| **Enrichment Analysis** | `great_summary.tsv` | `results/enrichment/summary/` | Top enriched terms across datasets |
-| **Enrichment Analysis** | plots (`.png`) | `results/enrichment/plots/` | Barplots and heatmap of enrichment results |
+| Module | Output | Description |
+|--------|--------|------------|
+| **Alignment** | `*.HALPER.narrowPeak.gz` | Cross-species mapped OCR peaks |
+| **Alignment** | `*.halLiftover.*.bed.gz` | Intermediate liftover files |
+| **Classification** | `{species}_all_promoters.bed`<br>`{species}_all_enhancers.bed` | All OCRs split into promoters and enhancers |
+| **Classification** | `{species}_shared.bed`<br>`{species}_specific.bed` | Shared vs species-specific OCRs |
+| **Classification** | `shared_promoters.bed`<br>`shared_enhancers.bed` | Shared OCRs classified by type |
+| **Classification** | `{species}_specific_promoters.bed`<br>`{species}_specific_enhancers.bed` | Species-specific OCRs classified by type |
+| **Classification** | plots (`.png`) | Visualization of OCR classification |
+| **Motif Analysis** | `homerResults.html` | De novo motif discovery results |
+| **Motif Analysis** | `knownResults.html` | Known TF motif enrichment |
+| **Motif Analysis** | `homerMotifs.*` | Motif PWMs |
+| **Enrichment Analysis** | `gobp.csv` | GO Biological Process enrichment results |
+| **Enrichment Analysis** | `metadata.txt` | GREAT run metadata |
+| **Enrichment Analysis** | `great_summary.tsv` | Top enriched terms across datasets |
+| **Enrichment Analysis** | plots (`.png`) | Barplots and heatmap of enrichment results |
 
 ## Citation
 To cite this repository, please copy the following:
