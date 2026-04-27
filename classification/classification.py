@@ -330,19 +330,17 @@ def run_classification(config_path: Path) -> None:
     
     #Species 1 perspective: which are shared vs specific?
     s1_ortholog_status = identifyOrthologStatus(
-        source_ocr_bed_path=config.get("species_1_peak_file_cleaned"),
-        source_to_target_mapped_path=config.get("species_1_to_species_2_cleaned"),
-        target_native_ocr_path=config.get("species_2_peak_file_cleaned"),
-        output_prefix=str(output_dir / f"{species_1_name}")
-    )
+    source_to_target_mapped_path=config.get("species_1_to_species_2_cleaned"),
+    target_native_ocr_path=config.get("species_2_peak_file_cleaned"),
+    output_prefix=str(output_dir / f"{species_1_name}")
+)
     
     #Species 2 perspective: which are shared vs specific?
     s2_ortholog_status = identifyOrthologStatus(
-        source_ocr_bed_path=config.get("species_2_peak_file_cleaned"),
-        source_to_target_mapped_path=config.get("species_2_to_species_1_cleaned"),
-        target_native_ocr_path=config.get("species_1_peak_file_cleaned"),
-        output_prefix=str(output_dir / f"{species_2_name}")
-    )
+    source_to_target_mapped_path=config.get("species_2_to_species_1_cleaned"),
+    target_native_ocr_path=config.get("species_1_peak_file_cleaned"),
+    output_prefix=str(output_dir / f"{species_2_name}")
+)
 
     #Organizing results for logging
     ortholog_results = {
