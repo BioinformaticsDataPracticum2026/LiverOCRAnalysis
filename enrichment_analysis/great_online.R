@@ -1,12 +1,15 @@
 #!/usr/bin/env Rscript
 
+# load packages quietly so the terminal output stays cleaner
 suppressPackageStartupMessages({
   library(rGREAT)
   library(GenomicRanges)
 })
 
+# read command line inputs
 args <- commandArgs(trailingOnly = TRUE)
 
+# check that the user gave the expected arguments
 if (length(args) != 3) {
   stop("Usage: Rscript enrichment_analysis/great_online.R <bed_file> <genome> <outdir>")
 }
@@ -15,14 +18,17 @@ bed_file <- args[1]
 genome <- args[2]
 outdir <- args[3]
 
+# make sure the BED file exists
 if (!file.exists(bed_file)) {
   stop(paste("BED file not found:", bed_file))
 }
 
+# only allow the genomes supported in this script
 if (!(genome %in% c("hg38", "mm10"))) {
   stop("Genome must be either hg38 or mm10")
 }
 
+# create output folder if needed
 dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 # read BED file
@@ -35,13 +41,16 @@ d <- read.table(
   stringsAsFactors = FALSE
 )
 
+# BED file needs at least chromosome, start, and end
 if (ncol(d) < 3) {
   stop("BED file must have at least 3 columns: chr, start, end")
 }
 
+# keep only the main BED columns needed for GREAT
 d <- d[, 1:3]
 colnames(d) <- c("chr", "start", "end")
 
+# make sure start and end are numeric positions
 d$start <- as.integer(d$start)
 d$end <- as.integer(d$end)
 
@@ -70,21 +79,26 @@ if (genome == "hg38") {
   )
 }
 
+# count regions before filtering
 before_n <- nrow(d)
 
+# remove regions with unsupported chromosomes or invalid coordinates
 d <- d[d$chr %in% names(chr_sizes), ]
 d <- d[d$start >= 0, ]
 d <- d[d$end > d$start, ]
 d <- d[d$end <= chr_sizes[d$chr], ]
 
+# count regions after filtering
 after_n <- nrow(d)
 
+# print a small summary for checking
 cat("Input BED:", bed_file, "\n")
 cat("Genome:", genome, "\n")
 cat("Original regions:", before_n, "\n")
 cat("Filtered invalid regions:", before_n - after_n, "\n")
 cat("Remaining regions:", after_n, "\n")
 
+# stop if filtering removed everything
 if (after_n == 0) {
   stop("No valid regions remain after filtering.")
 }
@@ -98,18 +112,22 @@ gr <- GRanges(
 # run online GREAT
 job <- submitGreatJob(gr, genome = genome)
 
+# get enrichment result tables from GREAT
 tables <- getEnrichmentTables(job)
 
+# make sure GO Biological Process results are available
 if (!("GO Biological Process" %in% names(tables))) {
   stop("GO Biological Process table was not returned by GREAT.")
 }
 
+# save GO Biological Process enrichment results
 write.csv(
   tables[["GO Biological Process"]],
   file.path(outdir, "gobp.csv"),
   row.names = FALSE
 )
 
+# save basic metadata about the run
 writeLines(
   c(
     paste("bed_file:", bed_file),
