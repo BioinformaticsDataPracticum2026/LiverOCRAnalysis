@@ -8,49 +8,82 @@
 #SBATCH -o logs/halper_%j.out
 #SBATCH -e logs/halper_%j.err
 #SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=smakkar@andrew.cmu.edu
 
-# Load modules
+# usage:
+# bash alignment/run_halper.sh human_peaks mouse_peaks hal_file output_dir
+
+HUMAN_PEAKS=$1
+MOUSE_PEAKS=$2
+HAL_FILE=$3
+OUTPUT_DIR=$4
+
+# check inputs
+if [ -z "$HUMAN_PEAKS" ] || [ -z "$MOUSE_PEAKS" ] || [ -z "$HAL_FILE" ] || [ -z "$OUTPUT_DIR" ]; then
+    echo "Usage: bash alignment/run_halper.sh <human_peaks> <mouse_peaks> <hal_file> <output_dir>"
+    exit 1
+fi
+
+if [ ! -f "$HUMAN_PEAKS" ]; then
+    echo "ERROR: human peaks file not found: $HUMAN_PEAKS"
+    exit 1
+fi
+
+if [ ! -f "$MOUSE_PEAKS" ]; then
+    echo "ERROR: mouse peaks file not found: $MOUSE_PEAKS"
+    exit 1
+fi
+
+if [ ! -f "$HAL_FILE" ]; then
+    echo "ERROR: HAL file not found: $HAL_FILE"
+    exit 1
+fi
+
+# load environment
 module load anaconda3
-
-# Activate HAL conda environment
 source activate hal
 
-# Set file paths
-HUMAN_PEAKS="/ocean/projects/bio230007p/ikaplow/HumanAtac/Liver/peak/idr_reproducibility/idr.conservative_peak.narrowPeak.gz"
-MOUSE_PEAKS="/ocean/projects/bio230007p/ikaplow/MouseAtac/Liver/peak/idr_reproducibility/idr.conservative_peak.narrowPeak.gz"
-OUTPUT_DIR="/jet/home/smakkar/atac_align/results"
-HAL_FILE="/ocean/projects/bio230007p/ikaplow/Alignments/10plusway-master.hal"
-
-# Make output directory
-mkdir -p $OUTPUT_DIR
-mkdir -p $OUTPUT_DIR/human_to_mouse
-mkdir -p $OUTPUT_DIR/mouse_to_human
+# create output folders
 mkdir -p logs
+mkdir -p "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR/human_to_mouse"
+mkdir -p "$OUTPUT_DIR/mouse_to_human"
 
-# Unzip peak files
-echo "Unzipping human peaks..."
-gunzip -c $HUMAN_PEAKS > $OUTPUT_DIR/human_liver.narrowPeak
+# helper function for gz or plain bed files
+prepare_bed () {
+    INPUT_FILE=$1
+    OUTPUT_FILE=$2
 
-echo "Unzipping mouse peaks..."
-gunzip -c $MOUSE_PEAKS > $OUTPUT_DIR/mouse_liver.narrowPeak
+    if [[ "$INPUT_FILE" == *.gz ]]; then
+        gunzip -c "$INPUT_FILE" > "$OUTPUT_FILE"
+    else
+        cp "$INPUT_FILE" "$OUTPUT_FILE"
+    fi
+}
+
+# prepare peak files
+echo "Preparing human peaks..."
+prepare_bed "$HUMAN_PEAKS" "$OUTPUT_DIR/human_liver.narrowPeak"
+
+echo "Preparing mouse peaks..."
+prepare_bed "$MOUSE_PEAKS" "$OUTPUT_DIR/mouse_liver.narrowPeak"
 
 echo "Starting HALPER mapping..."
 
-# Run mappings in parallel
-bash /jet/home/smakkar/repos/halLiftover-postprocessing/halper_map_peak_orthologs.sh \
-    -b $OUTPUT_DIR/human_liver.narrowPeak \
-    -o $OUTPUT_DIR/human_to_mouse \
+# run human to mouse
+bash alignment/halper.sh \
+    -b "$OUTPUT_DIR/human_liver.narrowPeak" \
+    -o "$OUTPUT_DIR/human_to_mouse" \
     -s "Human" \
     -t "Mouse" \
-    -c $HAL_FILE &
+    -c "$HAL_FILE" &
 
-bash /jet/home/smakkar/repos/halLiftover-postprocessing/halper_map_peak_orthologs.sh \
-    -b $OUTPUT_DIR/mouse_liver.narrowPeak \
-    -o $OUTPUT_DIR/mouse_to_human \
+# run mouse to human
+bash alignment/halper.sh \
+    -b "$OUTPUT_DIR/mouse_liver.narrowPeak" \
+    -o "$OUTPUT_DIR/mouse_to_human" \
     -s "Mouse" \
     -t "Human" \
-    -c $HAL_FILE &
+    -c "$HAL_FILE" &
 
 wait
 

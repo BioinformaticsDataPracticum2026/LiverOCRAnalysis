@@ -66,14 +66,23 @@ def get_processed_config_path(config_path):
 # pipeline steps
 # -------------------------
 
-def run_alignment(local=False):
-    # run halper alignment (slurm or local)
+def run_alignment(human_peaks, mouse_peaks, hal_file, outdir, local=False):
+    # run halper alignment using user-provided paths
     script = require_file(ALIGNMENT_SCRIPT, "alignment script")
+    human_peaks = require_file(human_peaks, "human peaks")
+    mouse_peaks = require_file(mouse_peaks, "mouse peaks")
+    hal_file = require_file(hal_file, "HAL file")
 
-    if local:
-        run_command(["bash", str(script)], "alignment")
-    else:
-        run_command(["sbatch", str(script)], "alignment")
+    cmd = [
+        "bash" if local else "sbatch",
+        str(script),
+        str(human_peaks),
+        str(mouse_peaks),
+        str(hal_file),
+        str(outdir),
+    ]
+
+    run_command(cmd, "alignment")
 
 
 def run_preprocess(config, log_level="INFO"):

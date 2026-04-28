@@ -9,19 +9,29 @@
 #SBATCH -e logs/pipeline_%j.err
 #SBATCH --mail-type=END,FAIL
 
-# create logs folder if it does not exist
+# create logs folder
 mkdir -p logs
 
-# run alignment (uses SLURM internally)
-python main.py alignment
+# load HOMER for motif step
+module load homer
 
-# run classification (includes preprocessing)
+# -------- alignment --------
+python main.py alignment \
+  --human-peaks data/atac_seq_peaks/humanIDRConservedPeaks.gz \
+  --mouse-peaks data/atac_seq_peaks/mouseIDRConservedPeaks.gz \
+  --hal-file /path/to/10plusway-master.hal \
+  --outdir results/alignment_results \
+  --local
+
+# -------- classification --------
 python main.py classification \
   --config classification/sample_config.yaml
 
-# run motif analysis
+# -------- motif --------
 python main.py motif \
-  --genome hg38
+  --genome hg38 \
+  --bed-dir results/classification_results \
+  --beds human_all_promoters.bed human_all_enhancers.bed shared_promoters.bed shared_enhancers.bed human_specific_promoters.bed human_specific_enhancers.bed
 
-# run enrichment analysis
-python main.py enrichment
+# -------- enrichment --------
+python -m enrichment_analysis.run_great

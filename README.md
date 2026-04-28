@@ -9,8 +9,14 @@ This repository contains a bioinformatics pipeline for analyzing and comparing o
 - Classifying regions into promoters and enhancers  
 - Identifying transcription factor binding motifs  
 - Performing enrichment analysis  
+---
+
+<p align="center">
+  <img src="demo/protocol-workflow.png" alt="Pipeline Workflow" width="1000">
+</p>
 
 ---
+
 
 ## Structure
 
@@ -143,7 +149,16 @@ Runs cross-species mapping using HALPER (via SLURM by default).
 
 ### 4. Motif Analysis (HOMER)
 
-    python main.py motif --genome hg38
+First, load HOMER:
+
+    module load homer
+
+Then run:
+
+    python main.py motif \
+      --genome hg38 \
+      --bed-dir results/classification_results \
+      --beds human_all_promoters.bed human_all_enhancers.bed shared_promoters.bed shared_enhancers.bed human_specific_promoters.bed human_specific_enhancers.bed
 
 Optional:
 
@@ -154,7 +169,7 @@ Optional:
 
 ### 5. Enrichment Analysis (GREAT)
 
-    python main.py enrichment
+    python -m enrichment_analysis.run_great
 
 Runs:
 - GREAT (rGREAT)
@@ -223,6 +238,16 @@ This script runs:
 
 ---
 
+## Demo
+Classification:
+
+![Classification Demo](demo/classification.gif)
+
+Enrichment:
+
+![Enrichment Demo](demo/enrichment.gif)
+
+
 ### Outputs
 
 | Module | Output | Description |
@@ -244,7 +269,7 @@ This script runs:
 
 ---
 
----
+
 
 ## Results: Data Quality Metrics
 

@@ -23,12 +23,16 @@
 
 
 # CACTUSFILE=/projects/pfenninggroup/machineLearningForComputationalBiology/alignCactus/10plusway-master.hal
-source ~/.bashrc
-conda activate hal
 
-# Default argument values (can be overridden by args)
-CACTUSFILE=/ocean/projects/bio230007p/ikaplow/Alignments/10plusway-master.hal
-OVERWRITE='FALSE'; NAME=''; SNP=''; 
+# default values
+CACTUSFILE=""
+OVERWRITE='FALSE'
+NAME=''
+SNP=''
+
+
+
+
 # HALPER defaults
 MIN_LEN=50; PROTECT_DIST=10; MAX_FRAC=1.5
 
@@ -37,7 +41,7 @@ TMP_LABEL="tmp$(date +%s)"
 # Make a temporary dir, portable on Linux and Mac
 # from https://unix.stackexchange.com/a/84980
 TMP_HAL_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'mytmpdir')
-CACTUS_DIR=/ocean/projects/bio230007p/ikaplow/Alignments
+#CACTUS_DIR=/ocean/projects/bio230007p/ikaplow/Alignments
 
 function usage()
 {
@@ -273,22 +277,11 @@ function get_summits()
 
 function prepare_dirs()
 {
-    ########################################################################
-    # Make output dir if it doesn't exist
+    # create output directory
     mkdir -p ${OUTDIR}
 
-    # If the /scratch dir exists, copy the cactus file there, then use the cactus file in /scratch
-    # Otherwise, use the cactus file in the place the user provided.
-    if [ -d "/scratch" ]; then
-        echo "/scratch dir found; using cactus file in /scratch dir"
-        if [ ! -f "$CACTUS_DIR/$(basename $CACTUSFILE)" ]; then
-            echo "Copying cactus file to /scratch dir. This will take a long time."
-            rsync -Paq $CACTUSFILE $CACTUS_DIR
-        fi
-        CACTUSFILE=$CACTUS_DIR/$(basename $CACTUSFILE)
-    else
-        echo "no /scratch dir, using cactus file $CACTUSFILE"
-    fi
+    # just use the HAL file provided by user
+    echo "Using HAL file: $CACTUSFILE"
 }
 
 function lift_summits()

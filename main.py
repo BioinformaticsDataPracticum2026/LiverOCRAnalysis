@@ -1,4 +1,5 @@
 # main.py - command-line interface for running the LiverOCRAnalysis pipeline
+
 import argparse
 import sys
 
@@ -25,6 +26,26 @@ def build_parser():
     alignment_parser = subparsers.add_parser(
         "alignment",
         help="run HALPER alignment",
+    )
+    alignment_parser.add_argument(
+        "--human-peaks",
+        required=True,
+        help="path to human peak file",
+    )
+    alignment_parser.add_argument(
+        "--mouse-peaks",
+        required=True,
+        help="path to mouse peak file",
+    )
+    alignment_parser.add_argument(
+        "--hal-file",
+        required=True,
+        help="path to HAL alignment file",
+    )
+    alignment_parser.add_argument(
+        "--outdir",
+        default="results/alignment_results",
+        help="output directory",
     )
     alignment_parser.add_argument(
         "--local",
@@ -165,7 +186,13 @@ def main():
     args = parser.parse_args()
 
     if args.command == "alignment":
-        run_alignment(local=args.local)
+        run_alignment(
+            human_peaks=args.human_peaks,
+            mouse_peaks=args.mouse_peaks,
+            hal_file=args.hal_file,
+            outdir=args.outdir,
+            local=args.local,
+        )
 
     elif args.command == "preprocess":
         run_preprocess(

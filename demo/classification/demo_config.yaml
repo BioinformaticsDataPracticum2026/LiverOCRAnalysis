@@ -1,0 +1,16 @@
+species_1: "human"
+species_2: "mouse"
+
+species_1_peak_file_cleaned: demo/classification/human_peaks.bed
+species_1_tss_file_cleaned: demo/classification/human_tss.bed
+
+species_2_peak_file_cleaned: demo/classification/mouse_peaks.bed
+species_2_tss_file_cleaned: demo/classification/mouse_tss.bed
+
+species_1_to_species_2_cleaned: demo/classification/human_to_mouse.bed
+species_2_to_species_1_cleaned: demo/classification/mouse_to_human.bed
+
+output_dir: results/demo_classification
+
+parameters:
+  promoter_distance: 2000
